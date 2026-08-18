@@ -1,0 +1,15 @@
+/* Inventory specific styles if needed */
+.barcode-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2rem 0;
+  padding: 1rem;
+  background: white;
+  border-radius: var(--radius-md);
+  color: black;
+}
+.barcode-container p {
+  margin-top: 0.5rem;
+  font-weight: bold;
+}
