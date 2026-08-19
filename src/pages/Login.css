@@ -3,38 +3,45 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: radial-gradient(circle at top right, var(--bg-hover), var(--bg-main));
+  /* Use the ambient background from index.css */
+  background-color: var(--bg-main);
+  background-image: var(--bg-ambient);
+  background-attachment: fixed;
+  padding: 1rem;
 }
 
 .login-card {
   width: 100%;
-  max-width: 400px;
-  padding: 2.5rem;
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  max-width: 440px;
+  padding: 3.5rem 3rem;
+  /* The .card class from common.css handles the frosted glass and shadow */
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .login-header h2 {
-  font-size: 1.75rem;
+  font-size: 2rem;
+  font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(to right, var(--primary), #818CF8);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
   color: var(--text-muted);
+  font-size: 1.05rem;
+  font-weight: 500;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .input-group {
@@ -45,51 +52,92 @@
 
 .input-icon {
   position: absolute;
-  left: 1rem;
+  left: 1.25rem;
   color: var(--text-muted);
+  pointer-events: none;
+  transition: var(--transition);
+}
+
+.input-group:focus-within .input-icon {
+  color: var(--primary);
 }
 
 .input-group input {
   width: 100%;
-  padding-left: 2.75rem;
-  height: 3rem;
-  background-color: rgba(15, 23, 42, 0.5);
+  padding-left: 3.25rem;
+  height: 3.5rem;
+  font-size: 1.05rem;
+  border-radius: var(--radius-full);
 }
 
 .role-selector {
   display: flex;
-  gap: 1rem;
+  gap: 1.5rem;
   justify-content: center;
-  margin: 0.5rem 0;
+  margin: 0.5rem 0 1rem;
 }
 
 .role-selector label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   cursor: pointer;
   color: var(--text-muted);
+  font-weight: 600;
   transition: var(--transition);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: transparent;
 }
 
 .role-selector label:hover {
   color: var(--text-main);
+  background: var(--bg-hover);
 }
 
-.btn-primary {
-  width: 100%;
-  padding: 0.875rem;
+.role-selector input[type="radio"] {
+  /* Hide standard radio */
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text-muted);
+  border-radius: 50%;
+  outline: none;
+  position: relative;
+  transition: var(--transition);
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.role-selector input[type="radio"]:checked {
+  border-color: var(--primary);
+}
+
+.role-selector input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
   background-color: var(--primary);
-  color: white;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 1rem;
-  margin-top: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--primary);
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 8px -1px rgba(79, 70, 229, 0.5);
+.role-selector input[type="radio"]:checked + span {
+  color: var(--primary);
+}
+
+/* We don't define .btn-primary here, we let common.css style it! */
+/* Just adding full width for login button */
+.login-form .btn-primary {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
 }

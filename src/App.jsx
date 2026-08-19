@@ -13,6 +13,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
+import SMS from './pages/SMS';
 
 // Placeholder Pages (will be extracted to separate files in later phases)
 
@@ -53,9 +54,10 @@ function App() {
           <Route path="pos" element={<POS />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="purchases" element={<Purchase />} />
-          <Route path="returns" element={<Returns />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="expenses" element={<Expenses />} />
+          <Route path="/returns" element={<Returns />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/sms" element={<SMS />} />
+          <Route path="/expenses" element={<Expenses />} />
           
           {/* Admin Only Routes */}
           <Route path="hr" element={<ProtectedRoute requiredRole="Admin"><HR /></ProtectedRoute>} />

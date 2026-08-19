@@ -14,15 +14,32 @@ import {
   RefreshCcw,
   Sun,
   Moon,
-  MoreVertical
+  MoreVertical,
+  MessageSquare,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './Layout.css';
 
 const Layout = () => {
   const { user, logout, theme, toggleTheme } = useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -42,6 +59,7 @@ const Layout = () => {
   // Admin only menu items
   if (user?.role === 'Admin') {
     menuItems.push(
+      { path: '/sms', name: 'SMS System', icon: <MessageSquare size={20} /> },
       { path: '/hr', name: 'HR & Payroll', icon: <Users size={20} /> },
       { path: '/reports', name: 'Reports', icon: <FileText size={20} /> },
       { path: '/settings', name: 'Settings', icon: <Settings size={20} /> }
@@ -92,6 +110,10 @@ const Layout = () => {
             {/* Search or breadcrumbs can go here */}
           </div>
           <div className="topbar-actions flex-align-gap">
+            <div className={`flex-align-gap px-3 py-1 rounded`} style={{ backgroundColor: isOnline ? 'rgba(var(--success-rgb), 0.1)' : 'rgba(var(--warning-rgb), 0.1)', color: isOnline ? 'var(--success)' : 'var(--warning)', border: `1px solid ${isOnline ? 'var(--success)' : 'var(--warning)'}`, fontSize: '0.85rem' }}>
+              {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
+              {isOnline ? 'Synced' : 'Offline (Saved Locally)'}
+            </div>
             <button className="btn-icon" onClick={toggleTheme} title="Toggle Theme">
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>

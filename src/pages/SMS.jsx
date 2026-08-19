@@ -1,0 +1,157 @@
+import React, { useState } from 'react';
+import useStore from '../store/useStore';
+import { Send, MessageSquare, Users } from 'lucide-react';
+
+const SMS = () => {
+  const { customers, user } = useStore();
+  const [selectedCustomers, setSelectedCustomers] = useState([]);
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState('');
+
+  // Only Admin can send SMS based on the requirement
+  if (user?.role !== 'Admin') {
+    return (
+      <div className="card text-center" style={{ marginTop: '2rem' }}>
+        <h2 className="text-danger">Access Denied</h2>
+        <p className="text-muted">Only Admins can access the SMS system.</p>
+      </div>
+    );
+  }
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedCustomers(customers.map(c => c.id));
+    } else {
+      setSelectedCustomers([]);
+    }
+  };
+
+  const handleSelect = (id) => {
+    if (selectedCustomers.includes(id)) {
+      setSelectedCustomers(selectedCustomers.filter(cId => cId !== id));
+    } else {
+      setSelectedCustomers([...selectedCustomers, id]);
+    }
+  };
+
+  const handleSendSMS = (e) => {
+    e.preventDefault();
+    if (selectedCustomers.length === 0) {
+      alert('Please select at least one customer.');
+      return;
+    }
+    if (!message.trim()) {
+      alert('Message cannot be empty.');
+      return;
+    }
+
+    // Mock sending SMS
+    setStatus('Sending SMS to ' + selectedCustomers.length + ' customers...');
+    
+    setTimeout(() => {
+      setStatus('');
+      alert(`SMS sent successfully to ${selectedCustomers.length} customers!`);
+      setMessage('');
+      setSelectedCustomers([]);
+    }, 1500);
+  };
+
+  return (
+    <div className="sms-page animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1>Customer SMS System</h1>
+          <p className="text-muted">Send promotional or due reminder SMS to customers.</p>
+        </div>
+      </div>
+
+      <div className="grid responsive-grid-2">
+        <div className="card">
+          <div className="card-toolbar" style={{ marginBottom: '1rem' }}>
+            <h3><Users size={18} className="inline mr-2" /> Select Customers</h3>
+            <label className="flex-align-gap" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={selectedCustomers.length === customers.length && customers.length > 0}
+                onChange={handleSelectAll}
+              />
+              Select All
+            </label>
+          </div>
+          
+          <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}></th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.length === 0 ? (
+                  <tr><td colSpan="4" className="text-center text-muted">No customers found.</td></tr>
+                ) : (
+                  customers.map(c => (
+                    <tr key={c.id}>
+                      <td>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedCustomers.includes(c.id)}
+                          onChange={() => handleSelect(c.id)}
+                        />
+                      </td>
+                      <td>{c.name}</td>
+                      <td>{c.phone || 'N/A'}</td>
+                      <td className={c.due > 0 ? 'text-danger font-bold' : 'text-success'}>৳{c.due}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card">
+          <h3><MessageSquare size={18} className="inline mr-2" /> Compose Message</h3>
+          <form onSubmit={handleSendSMS} style={{ marginTop: '1.5rem' }}>
+            <div className="form-group">
+              <label>Message Content</label>
+              <textarea 
+                className="w-full"
+                rows="6"
+                placeholder="Type your SMS message here..."
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                style={{ resize: 'vertical' }}
+              ></textarea>
+              <p className="text-sm text-muted mt-2 text-right">
+                Characters: {message.length} ({(message.length / 160).toFixed(1)} SMS)
+              </p>
+            </div>
+
+            {status && (
+              <div className="mt-4 p-3 rounded" style={{ background: 'rgba(139, 92, 246, 0.1)', color: 'var(--primary)', textAlign: 'center', fontWeight: 'bold' }}>
+                {status}
+              </div>
+            )}
+
+            <div className="mt-4 text-right">
+              <button 
+                type="submit" 
+                className="btn-primary flex-align-gap" 
+                style={{ marginLeft: 'auto' }}
+                disabled={!!status}
+              >
+                <Send size={18} /> Send SMS ({selectedCustomers.length} selected)
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SMS;

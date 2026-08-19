@@ -48,12 +48,17 @@ const Inventory = () => {
           <h1>Inventory Management</h1>
           <p className="text-muted">Manage your stock, categories, and generate barcodes.</p>
         </div>
-        <button className="btn-primary flex-align-gap" style={{ width: 'fit-content', whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
-          <Plus size={18} /> Add New Product
-        </button>
+        <div className="flex-align-gap">
+          <button className="btn-outline flex-align-gap" onClick={() => window.print()}>
+            <Printer size={18} /> Print List
+          </button>
+          <button className="btn-primary flex-align-gap" style={{ width: 'fit-content', whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
+            <Plus size={18} /> Add New Product
+          </button>
+        </div>
       </div>
 
-      <div className="card glass">
+      <div className="card">
         <div className="card-toolbar">
           <div className="search-bar">
             <Search size={18} className="text-muted" />
