@@ -52,6 +52,7 @@ const Layout = () => {
     { path: '/inventory', name: 'Inventory', icon: <Package size={20} /> },
     { path: '/purchases', name: 'Purchases', icon: <Truck size={20} /> },
     { path: '/returns', name: 'Returns', icon: <RefreshCcw size={20} /> },
+    { path: '/suppliers', name: 'Suppliers', icon: <Users size={20} /> },
     { path: '/customers', name: 'Customers & Due', icon: <Users size={20} /> },
     { path: '/expenses', name: 'Expenses', icon: <DollarSign size={20} /> },
   ];
@@ -61,8 +62,7 @@ const Layout = () => {
     menuItems.push(
       { path: '/sms', name: 'SMS System', icon: <MessageSquare size={20} /> },
       { path: '/hr', name: 'HR & Payroll', icon: <Users size={20} /> },
-      { path: '/reports', name: 'Reports', icon: <FileText size={20} /> },
-      { path: '/settings', name: 'Settings', icon: <Settings size={20} /> }
+      { path: '/reports', name: 'Reports', icon: <FileText size={20} /> }
     );
   }
 

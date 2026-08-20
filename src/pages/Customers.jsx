@@ -1,13 +1,59 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, MessageSquare, Phone, Printer, Eye, Download } from 'lucide-react';
 import useStore from '../store/useStore';
+import { downloadAsPDF } from '../utils/pdfGenerator';
 
 const Customers = () => {
-  const { customers, suppliers } = useStore();
+  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('Customer'); // Customer or Supplier
   const [smsModal, setSmsModal] = useState({ show: false, target: null, message: '' });
+  const [settleModal, setSettleModal] = useState({ show: false, target: null, amount: '', date: '' });
   const [selectedPerson, setSelectedPerson] = useState(null);
+
+  // Compute Ledger for selected person
+  let personLedger = [];
+  if (selectedPerson) {
+    const personSettlements = (settlements || []).filter(s => s.targetId === selectedPerson.id).map(s => ({
+      id: s.id,
+      date: s.date,
+      description: 'Payment / Settlement',
+      amount: s.amount,
+      type: 'payment' // decreases due
+    }));
+
+    if (activeTab === 'Customer') {
+      const personSales = (sales || []).filter(s => s.customerId === selectedPerson.id && s.paymentType === 'Baki').map(s => ({
+        id: s.id,
+        date: s.date,
+        description: `Baki Sale (${s.items.length} items)`,
+        amount: s.total,
+        type: 'charge' // increases due
+      }));
+      personLedger = [...personSales, ...personSettlements];
+    } else {
+      const personPurchases = (purchases || []).filter(p => p.supplierId === selectedPerson.id && p.paymentType === 'Baki').map(p => ({
+        id: p.id,
+        date: p.date,
+        description: `Baki Purchase (${p.items.length} items)`,
+        amount: p.total,
+        type: 'charge' // increases due
+      }));
+      personLedger = [...personPurchases, ...personSettlements];
+    }
+
+    // Sort ascending by date
+    personLedger.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Calculate running balance
+    let balance = 0;
+    personLedger = personLedger.map(tx => {
+      if (tx.type === 'charge') balance += tx.amount;
+      else if (tx.type === 'payment') balance -= tx.amount;
+      return { ...tx, balance };
+    });
+  }
 
   const currentList = activeTab === 'Customer' ? customers : suppliers;
 
@@ -16,32 +62,29 @@ const Customers = () => {
       person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       person.phone.includes(searchTerm)
   );
-
-  const handleDownload = (person) => {
-    let content = `======================================\n`;
-    content += `      DUE STATEMENT\n`;
-    content += `======================================\n`;
-    content += `ID         : ${person.id}\n`;
-    content += `Name       : ${person.name}\n`;
-    content += `Phone      : ${person.phone}\n`;
-    content += `Type       : ${activeTab}\n`;
-    content += `--------------------------------------\n`;
-    content += `Total Due  : ৳${person.due}\n`;
-    content += `======================================\n`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Due_${activeTab}_${person.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleSendSMS = (e) => {
     e.preventDefault();
     alert(`SMS sent to ${smsModal.target.name} (${smsModal.target.phone}):\n"${smsModal.message}"`);
     setSmsModal({ show: false, target: null, message: '' });
+  };
+
+  const handleSettle = (e) => {
+    e.preventDefault();
+    const amount = parseFloat(settleModal.amount);
+    if (!amount || amount <= 0) {
+      alert('Please enter a valid amount to settle.');
+      return;
+    }
+
+    if (activeTab === 'Customer') {
+      settleCustomerDue(settleModal.target.id, amount, settleModal.date);
+      alert(`Successfully settled ৳${amount} for Customer: ${settleModal.target.name}`);
+    } else {
+      settleSupplierDue(settleModal.target.id, amount, settleModal.date);
+      alert(`Successfully settled ৳${amount} for Supplier: ${settleModal.target.name}`);
+    }
+
+    setSettleModal({ show: false, target: null, amount: '', date: '' });
   };
 
   return (
@@ -78,8 +121,18 @@ const Customers = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="btn-primary flex-align-gap" onClick={() => window.print()} style={{marginLeft: 'auto'}}>
+          <button className="btn-primary flex-align-gap" onClick={() => {
+            const printContents = document.getElementById('printable-customers-list').innerHTML;
+            const originalContents = document.body.innerHTML;
+            document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
+            window.print();
+            document.body.innerHTML = originalContents;
+            window.location.reload(); 
+          }} style={{marginLeft: 'auto'}}>
             <Printer size={16} /> Print List
+          </button>
+          <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-customers-list', 'Customers_List.pdf')}>
+            <Download size={16} /> Download PDF
           </button>
         </div>
 
@@ -109,10 +162,7 @@ const Customers = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(person)}>
-                          <Download size={16} />
-                        </button>
-                        <button className="btn-outline" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}}>Settle</button>
+<button className="btn-outline" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}} onClick={() => setSettleModal({ show: true, target: person, amount: person.due, date: new Date().toISOString().split('T')[0] })}>Settle</button>
                         {activeTab === 'Customer' && (
                           <button 
                             className="btn-primary flex-align-gap" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}}
@@ -131,64 +181,223 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* SMS Modal */}
-      {smsModal.show && (
-        <div className="modal-overlay">
-          <div className="modal-content glass">
-            <h2>Send SMS</h2>
-            <p className="mb-4 text-muted">To: {smsModal.target?.name} ({smsModal.target?.phone})</p>
-            <form onSubmit={handleSendSMS}>
-              <textarea
-                className="w-full"
-                rows="4"
-                value={smsModal.message}
-                onChange={(e) => setSmsModal({ ...smsModal, message: e.target.value })}
-                required
-              />
-              <div className="modal-actions">
-                <button type="button" className="btn-outline" onClick={() => setSmsModal({ show: false, target: null, message: '' })}>Cancel</button>
-                <button type="submit" className="btn-primary flex-align-gap"><MessageSquare size={16} /> Send</button>
-              </div>
-            </form>
-          </div>
+      {/* Hidden Printable List (Excel Style) */}
+      <div id="printable-customers-list" style={{ display: 'none' }}>
+        <div style={{ padding: '1.5rem', background: '#fff', color: '#000', fontFamily: 'sans-serif' }}>
+          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+          <p style={{ textAlign: 'center', fontSize: '1rem', marginBottom: '1.5rem', color: '#333' }}>
+            {activeTab === 'Customer' ? 'Customers' : 'Suppliers'} Due List
+          </p>
+          
+          <table style={{ width: '100%', fontSize: '0.85rem', color: '#000', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
+            <thead>
+              <tr style={{ background: '#f8f9fa' }}>
+                <th style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'left'}}>ID</th>
+                <th style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'left'}}>Name</th>
+                <th style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'left'}}>Phone</th>
+                <th style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right'}}>Total Due (BDT)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredList.length > 0 ? filteredList.map((person) => (
+                <tr key={person.id}>
+                  <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{person.id}</td>
+                  <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{person.name}</td>
+                  <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{person.phone}</td>
+                  <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>৳{person.due.toLocaleString()}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="4" style={{border: '1px solid #ccc', padding: '1rem', textAlign: 'center'}}>No records found.</td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr style={{ background: '#f8f9fa', fontWeight: 'bold' }}>
+                <td colSpan="3" style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right'}}>Total Due:</td>
+                <td style={{border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right', color: 'red'}}>
+                  ৳{filteredList.reduce((sum, item) => sum + item.due, 0).toLocaleString()}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
+      </div>
+
+      {/* Settle Due Drawer */}
+      {settleModal.show && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container" style={{ maxWidth: '400px' }}>
+            <div className="drawer-header">
+              <h2>Settle Due</h2>
+              <button className="drawer-close-btn" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="settle-form" onSubmit={handleSettle}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">Target</label>
+                    <p className="font-bold">{settleModal.target?.name} ({settleModal.target?.id})</p>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">Current Due (BDT)</label>
+                    <p className="font-bold text-danger text-lg">৳{settleModal.target?.due}</p>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">Settlement Amount (BDT)</label>
+                    <input 
+                      type="number" 
+                      className="w-full" 
+                      value={settleModal.amount} 
+                      onChange={e => setSettleModal({...settleModal, amount: e.target.value})} 
+                      required 
+                      min="1"
+                      max={settleModal.target?.due}
+                      step="any"
+                    />
+                    <small className="text-muted">Enter the amount they are paying to clear the due.</small>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">Date</label>
+                    <input 
+                      type="date" 
+                      className="w-full" 
+                      value={settleModal.date} 
+                      onChange={e => setSettleModal({...settleModal, date: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>Cancel</button>
+              <button type="submit" form="settle-form" className="btn-primary">Confirm Settlement</button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
-      {/* Print Single Person Modal */}
-      {selectedPerson && (
-        <div className="modal-overlay" style={{ zIndex: 100 }}>
-          <div className="modal-content glass" style={{ maxWidth: '400px' }}>
-            <div id="printable-single-person" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
-               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
-                 Due Statement<br/>
-                 Date: {new Date().toLocaleDateString()}
-               </p>
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               
-               <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                 <p><strong>Name:</strong> {selectedPerson.name}</p>
-                 <p><strong>Phone:</strong> {selectedPerson.phone}</p>
-                 <p><strong>Type:</strong> {activeTab}</p>
-                 <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                 <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: 'red' }}><strong>Total Due:</strong> ৳{selectedPerson.due.toLocaleString()}</p>
-               </div>
+      {/* SMS Drawer */}
+      {smsModal.show && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>Send SMS</h2>
+              <button type="button" className="drawer-close-btn" onClick={() => setSmsModal({ show: false, target: null, message: '' })}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
-            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-              <button className="btn-outline" onClick={() => setSelectedPerson(null)}>Close</button>
-              <button className="btn-primary flex-align-gap" onClick={() => {
+            <div className="drawer-body">
+              <p className="mb-4 text-muted">To: {smsModal.target?.name} ({smsModal.target?.phone})</p>
+              <form id="sms-form" onSubmit={handleSendSMS}>
+                <textarea
+                  className="w-full"
+                  rows="4"
+                  value={smsModal.message}
+                  onChange={(e) => setSmsModal({ ...smsModal, message: e.target.value })}
+                  required
+                />
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setSmsModal({ show: false, target: null, message: '' })}>Cancel</button>
+              <button type="submit" form="sms-form" className="btn-primary flex-align-gap"><MessageSquare size={16} /> Send</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Print Single Person Drawer */}
+      {selectedPerson && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header" style={{ backgroundColor: '#f1f5f9' }}>
+              <h3 style={{ margin: 0 }}>Due Statement</h3>
+              <button className="drawer-close-btn" onClick={() => setSelectedPerson(null)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
+              <div id="printable-single-person" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
+                   Due Statement<br/>
+                   Date: {new Date().toLocaleDateString()}
+                 </p>
+                 <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                 
+                 <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                   <p><strong>Name:</strong> {selectedPerson.name}</p>
+                   <p><strong>Phone:</strong> {selectedPerson.phone}</p>
+                   <p><strong>Type:</strong> {activeTab}</p>
+                 </div>
+
+                 <h4 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#000' }}>Transaction Ledger</h4>
+                 <table style={{ width: '100%', fontSize: '0.8rem', color: '#000', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
+                   <thead>
+                     <tr style={{ background: '#f8f9fa' }}>
+                       <th style={{ border: '1px solid #ccc', padding: '0.5rem', textAlign: 'left' }}>Date</th>
+                       <th style={{ border: '1px solid #ccc', padding: '0.5rem', textAlign: 'left' }}>Description</th>
+                       <th style={{ border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right' }}>Charge (Baki)</th>
+                       <th style={{ border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right' }}>Payment (Settle)</th>
+                       <th style={{ border: '1px solid #ccc', padding: '0.5rem', textAlign: 'right' }}>Balance</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {personLedger.length > 0 ? (
+                       personLedger.map((tx) => (
+                         <tr key={tx.id}>
+                           <td style={{ border: '1px solid #ccc', padding: '0.4rem' }}>{new Date(tx.date).toLocaleDateString()}</td>
+                           <td style={{ border: '1px solid #ccc', padding: '0.4rem' }}>{tx.description}</td>
+                           <td style={{ border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right', color: tx.type === 'charge' ? 'red' : 'inherit' }}>
+                             {tx.type === 'charge' ? `৳${tx.amount.toLocaleString()}` : '-'}
+                           </td>
+                           <td style={{ border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right', color: tx.type === 'payment' ? 'green' : 'inherit' }}>
+                             {tx.type === 'payment' ? `৳${tx.amount.toLocaleString()}` : '-'}
+                           </td>
+                           <td style={{ border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right', fontWeight: 'bold' }}>
+                             ৳{Math.max(0, tx.balance).toLocaleString()}
+                           </td>
+                         </tr>
+                       ))
+                     ) : (
+                       <tr>
+                         <td colSpan="5" style={{ border: '1px solid #ccc', padding: '1rem', textAlign: 'center', color: '#666' }}>No transactions found.</td>
+                       </tr>
+                     )}
+                   </tbody>
+                 </table>
+
+                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                   <p style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'red' }}><strong>Current Due:</strong> ৳{selectedPerson.due.toLocaleString()}</p>
+                 </div>
+              </div>
+            </div>
+
+            <div className="drawer-footer" style={{ justifyContent: 'center', gap: '1rem' }}>
+              <button className="btn-primary flex-align-gap" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => {
                  const printContents = document.getElementById('printable-single-person').innerHTML;
                  const originalContents = document.body.innerHTML;
-                 document.body.innerHTML = printContents;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
                  window.print();
                  document.body.innerHTML = originalContents;
                  window.location.reload(); 
               }}>
-                <Printer size={18} /> Print
+                <Printer size={20} /> Print Document
+              </button>
+              <button className="btn-outline flex-align-gap text-info" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => downloadAsPDF('printable-single-person', `Customer_${selectedPerson.name}.pdf`)}>
+                <Download size={20} /> Download PDF
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

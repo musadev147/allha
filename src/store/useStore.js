@@ -13,9 +13,9 @@ const useStore = create(
 
       // Core Data Tables (Initialized with Mock Data for demonstration)
       inventory: [
-        { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500 },
-        { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850 },
-        { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120 },
+        { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500, dateAdded: new Date().toISOString() },
+        { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850, dateAdded: new Date().toISOString() },
+        { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120, dateAdded: new Date().toISOString() },
       ],
       customers: [
         { id: 'C001', name: 'Karim Rahman', phone: '01711000000', location: 'Dhaka', due: 1500 },
@@ -28,6 +28,7 @@ const useStore = create(
       sales: [],      // Retail Sales & Gifts History
       purchases: [],  // Supplier Purchases History
       returns: [],    // Customer returns & Supplier rejects
+      settlements: [], // Due settlement history
       expenses: [
         { id: 1, date: new Date().toISOString().split('T')[0], category: 'Transport', amount: 350, description: 'Van rent for rice delivery' },
         { id: 2, date: new Date().toISOString().split('T')[0], category: 'Staff Cost', amount: 200, description: 'Lunch for staff' },
@@ -64,6 +65,39 @@ const useStore = create(
         )
       })),
       clearCart: () => set({ cart: [] }),
+
+      // INVENTORY LOGIC
+      addInventoryItem: (item) => set((state) => ({
+        inventory: [{ ...item, dateAdded: item.dateAdded || new Date().toISOString() }, ...state.inventory]
+      })),
+      updateInventoryItem: (id, updates) => set((state) => ({
+        inventory: state.inventory.map(item => item.id === id ? { ...item, ...updates } : item)
+      })),
+      deleteInventoryItem: (id) => set((state) => ({
+        inventory: state.inventory.filter(item => item.id !== id)
+      })),
+
+      // DUE MANAGEMENT
+      settleCustomerDue: (customerId, amount, dateStr) => set((state) => {
+        const date = dateStr || new Date().toISOString();
+        const settlementRecord = { id: 'STL' + Date.now(), targetId: customerId, type: 'Customer', amount, date };
+        return {
+          customers: state.customers.map(c => 
+            c.id === customerId ? { ...c, due: Math.max(0, c.due - amount) } : c
+          ),
+          settlements: [settlementRecord, ...(state.settlements || [])]
+        };
+      }),
+      settleSupplierDue: (supplierId, amount, dateStr) => set((state) => {
+        const date = dateStr || new Date().toISOString();
+        const settlementRecord = { id: 'STL' + Date.now(), targetId: supplierId, type: 'Supplier', amount, date };
+        return {
+          suppliers: state.suppliers.map(s => 
+            s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s
+          ),
+          settlements: [settlementRecord, ...(state.settlements || [])]
+        };
+      }),
 
       // BUSINESS LOGIC ACTIONS
 
@@ -215,6 +249,14 @@ const useStore = create(
         suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s)
       })),
 
+      addSupplier: (supplierData) => set((state) => ({
+        suppliers: [...state.suppliers, { id: 'SUP' + Date.now(), due: 0, ...supplierData }]
+      })),
+
+      updateSupplier: (supplierId, updates) => set((state) => ({
+        suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, ...updates } : s)
+      })),
+
       addExpense: (expense) => set((state) => ({
         expenses: [{ id: Date.now(), ...expense }, ...state.expenses]
       })),
@@ -266,10 +308,10 @@ const useStore = create(
         const justDate = todayStr.split('T')[0];
         return {
           inventory: [
-            { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500 },
-            { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850 },
-            { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120 },
-            { id: '10004', name: 'Sugar 1kg', category: 'Grocery', stock: 100, unit: 'Packet', price: 140 },
+            { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500, dateAdded: todayStr },
+            { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850, dateAdded: todayStr },
+            { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120, dateAdded: todayStr },
+            { id: '10004', name: 'Sugar 1kg', category: 'Grocery', stock: 100, unit: 'Packet', price: 140, dateAdded: todayStr },
           ],
           customers: [
             { id: 'C001', name: 'Karim Rahman', phone: '01711000000', location: 'Dhaka', due: 1500 },

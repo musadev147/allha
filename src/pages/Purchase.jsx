@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Minus, Search, Trash2, Database, List, Printer, FilePlus, Eye, Download } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, Minus, Search, Trash2, Database, List, Printer, FilePlus, Eye, Download, FileText } from 'lucide-react';
 import useStore from '../store/useStore';
+import { downloadAsPDF } from '../utils/pdfGenerator';
 import './Purchase.css';
 
 const Purchase = () => {
@@ -19,33 +21,6 @@ const Purchase = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-
-  const handleDownload = (invoice) => {
-    let content = `======================================\n`;
-    content += `      PURCHASE RECEIPT\n`;
-    content += `======================================\n`;
-    content += `Receipt ID : ${invoice.id}\n`;
-    content += `Date       : ${new Date(invoice.date).toLocaleString()}\n`;
-    if (invoice.supplierName) content += `Supplier   : ${invoice.supplierName}\n`;
-    content += `Payment    : ${invoice.paymentType}\n`;
-    content += `--------------------------------------\n`;
-    content += `Items:\n`;
-    invoice.items.forEach(item => {
-      content += `- ${item.name} | Qty: ${item.quantity} | Price: ৳${item.price}\n`;
-    });
-    content += `--------------------------------------\n`;
-    content += `Total      : ৳${invoice.total}\n`;
-    content += `======================================\n`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Purchase_${invoice.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const filteredPurchases = purchases.filter(p => {
     if (!startDate && !endDate) return true;
     const pDate = p.date.split('T')[0];
@@ -308,8 +283,18 @@ const Purchase = () => {
               onChange={(e) => setEndDate(e.target.value)} 
               title="End Date"
             />
-            <button className="btn-primary flex-align-gap" onClick={() => window.print()}>
-              <Printer size={16} /> Print
+            <button className="btn-primary flex-align-gap" onClick={() => {
+                 const printContents = document.getElementById('printable-all-purchases-details').innerHTML;
+                 const originalContents = document.body.innerHTML;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
+                 window.print();
+                 document.body.innerHTML = originalContents;
+                 window.location.reload(); 
+            }}>
+              <Printer size={16} /> Print All Details
+            </button>
+            <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-all-purchases-details', 'Purchase_History.pdf')}>
+              <Download size={16} /> Download PDF
             </button>
           </div>
         </div>
@@ -340,10 +325,7 @@ const Purchase = () => {
                       <button className="btn-icon" title="View & Print" onClick={() => setSelectedInvoice(p)}>
                         <Eye size={16} />
                       </button>
-                      <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(p)}>
-                        <Download size={16} />
-                      </button>
-                    </div>
+</div>
                   </td>
                 </tr>
               ))}
@@ -351,68 +333,133 @@ const Purchase = () => {
             </tbody>
           </table>
         </div>
+
+        <div style={{ display: 'none' }}>
+          <div id="printable-all-purchases-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+            <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Purchase History</h3>
+            {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
+            
+            <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9' }}>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Date</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Invoice</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Supplier</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Payment</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Item</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'center'}}>Qty</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>Price</th>
+                  <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPurchases.map((purchase) => (
+                  <React.Fragment key={purchase.id}>
+                    {purchase.items.map((item, idx) => (
+                      <tr key={`${purchase.id}-${idx}`}>
+                        {idx === 0 && (
+                           <>
+                             <td rowSpan={purchase.items.length} style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{new Date(purchase.date).toLocaleDateString()}</td>
+                             <td rowSpan={purchase.items.length} style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{purchase.id}</td>
+                             <td rowSpan={purchase.items.length} style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{purchase.supplierName || 'N/A'}</td>
+                             <td rowSpan={purchase.items.length} style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{purchase.paymentType}</td>
+                           </>
+                        )}
+                        <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{item.name}</td>
+                        <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'center'}}>{item.quantity}</td>
+                        <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>৳{item.price}</td>
+                        <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>৳{item.price * item.quantity}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#f8f9fa' }}>
+                      <td colSpan="7" style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right', fontWeight: 'bold'}}>Invoice {purchase.id} Total:</td>
+                      <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right', fontWeight: 'bold'}}>৳{purchase.total}</td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ textAlign: 'right', marginTop: '1.5rem', fontSize: '1.2rem', fontWeight: 'bold' }}>
+              Grand Total: ৳{filteredPurchases.reduce((acc, p) => acc + p.total, 0)}
+            </div>
+          </div>
+        </div>
       </div>
       )}
 
-      {/* History Print Modal */}
-      {selectedInvoice && (
-        <div className="modal-overlay" style={{ zIndex: 100 }}>
-          <div className="modal-content glass" style={{ maxWidth: '400px' }}>
-            <div id="printable-single-invoice-pur" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
-               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
-                 Purchase Receipt: {selectedInvoice.id}<br/>
-                 Date: {new Date(selectedInvoice.date).toLocaleString()}
-               </p>
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               
-               <div style={{ fontSize: '0.85rem', marginBottom: '1rem', color: '#333' }}>
-                 {selectedInvoice.supplierName && <><strong>Supplier:</strong> {selectedInvoice.supplierName}<br/></>}
-                 <strong>Payment:</strong> {selectedInvoice.paymentType}
-               </div>
-
-               <table style={{ width: '100%', fontSize: '0.9rem', marginBottom: '1rem', color: '#000' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #eee' }}>
-                      <th style={{textAlign: 'left', paddingBottom: '0.5rem'}}>Item</th>
-                      <th style={{textAlign: 'right', paddingBottom: '0.5rem'}}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedInvoice.items.map((item, idx) => (
-                      <tr key={idx}>
-                        <td style={{ paddingTop: '0.5rem' }}>
-                          {item.name} <br/> 
-                          <small style={{ color: '#666' }}>{item.quantity} x ৳{item.price}</small>
-                        </td>
-                        <td style={{textAlign: 'right', paddingTop: '0.5rem'}}>
-                          ৳{item.price * item.quantity}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-               </table>
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: '#000' }}>
-                  <span>Total:</span>
-                  <span>৳{selectedInvoice.total}</span>
-               </div>
+      {/* History Print Drawer */}
+      {selectedInvoice && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header" style={{ backgroundColor: '#f1f5f9' }}>
+              <h3 style={{ margin: 0 }}>Purchase Receipt</h3>
+              <button className="drawer-close-btn" onClick={() => setSelectedInvoice(null)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
             </div>
-            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-              <button className="btn-outline" onClick={() => setSelectedInvoice(null)}>Close</button>
-              <button className="btn-primary flex-align-gap" onClick={() => {
+            
+            <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
+              <div id="printable-single-invoice-pur" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
+                   Purchase Receipt: {selectedInvoice.id}<br/>
+                   Date: {new Date(selectedInvoice.date).toLocaleString()}
+                 </p>
+                 <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                 
+                 <div style={{ fontSize: '0.9rem', marginBottom: '1.5rem', color: '#333' }}>
+                   {selectedInvoice.supplierName && <><strong>Supplier:</strong> {selectedInvoice.supplierName}<br/></>}
+                   <strong>Payment:</strong> {selectedInvoice.paymentType}
+                 </div>
+
+                 <table style={{ width: '100%', fontSize: '0.85rem', marginBottom: '1.5rem', color: '#000', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #eee' }}>
+                        <th style={{textAlign: 'left', paddingBottom: '0.5rem'}}>Item</th>
+                        <th style={{textAlign: 'right', paddingBottom: '0.5rem'}}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedInvoice.items.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '0.75rem 0' }}>
+                            {item.name} <br/> 
+                            <small style={{ color: '#666' }}>{item.quantity} x ৳{item.price}</small>
+                          </td>
+                          <td style={{textAlign: 'right', padding: '0.75rem 0'}}>
+                            ৳{item.price * item.quantity}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: '#000' }}>
+                    <span>Total:</span>
+                    <span>৳{selectedInvoice.total}</span>
+                 </div>
+              </div>
+            </div>
+
+            <div className="drawer-footer" style={{ justifyContent: 'center', gap: '1rem' }}>
+              <button className="btn-primary flex-align-gap" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => {
                  const printContents = document.getElementById('printable-single-invoice-pur').innerHTML;
                  const originalContents = document.body.innerHTML;
-                 document.body.innerHTML = printContents;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
                  window.print();
                  document.body.innerHTML = originalContents;
                  window.location.reload(); 
               }}>
-                <Printer size={18} /> Print
+                <Printer size={20} /> Print Receipt
+              </button>
+              <button className="btn-outline flex-align-gap text-info" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => downloadAsPDF('printable-single-invoice-pur', `Purchase_${selectedInvoice.id}.pdf`)}>
+                <Download size={20} /> Download PDF
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

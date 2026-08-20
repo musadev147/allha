@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import Inventory from './pages/Inventory';
 import Purchase from './pages/Purchase';
 import Returns from './pages/Returns';
+import Suppliers from './pages/Suppliers';
 import Customers from './pages/Customers';
 import Expenses from './pages/Expenses';
 import HR from './pages/HR';
@@ -55,6 +56,7 @@ function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="purchases" element={<Purchase />} />
           <Route path="/returns" element={<Returns />} />
+          <Route path="/suppliers" element={<Suppliers />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/sms" element={<SMS />} />
           <Route path="/expenses" element={<Expenses />} />

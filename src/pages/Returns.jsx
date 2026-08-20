@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RefreshCcw, Search, PackageMinus, PackagePlus, List, Plus, Printer, Eye, Download } from 'lucide-react';
 import useStore from '../store/useStore';
+import { downloadAsPDF } from '../utils/pdfGenerator';
 import './Returns.css';
 
 const Returns = () => {
@@ -9,9 +11,11 @@ const Returns = () => {
   
   // New Return State
   const [returnType, setReturnType] = useState('Customer');
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [product, setProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
+  const [referenceId, setReferenceId] = useState('');
 
   // History State
   const [startDate, setStartDate] = useState('');
@@ -27,15 +31,19 @@ const Returns = () => {
     
     processReturn({
       returnType,
+      date: entryDate,
       productId: product,
       quantity,
-      reason
+      reason,
+      referenceId
     });
     
     alert(`${returnType} Return/Reject processed successfully! Stock has been adjusted.`);
     setProduct('');
     setQuantity(1);
     setReason('');
+    setReferenceId('');
+    setEntryDate(new Date().toISOString().split('T')[0]);
   };
 
   const filteredReturns = returns.filter(r => {
@@ -50,28 +58,6 @@ const Returns = () => {
     const item = inventory.find(i => i.id === id);
     return item ? item.name : 'Unknown Product';
   };
-
-  const handleDownload = (data) => {
-    let content = `======================================\n`;
-    content += `      RETURN/REJECT RECEIPT\n`;
-    content += `======================================\n`;
-    content += `Receipt ID : ${data.id}\n`;
-    content += `Date       : ${new Date(data.date).toLocaleString()}\n`;
-    content += `Type       : ${data.returnType} ${data.returnType === 'Customer' ? 'Return' : 'Reject'}\n`;
-    content += `Product    : ${getProductName(data.productId)}\n`;
-    content += `Quantity   : ${data.quantity}\n`;
-    content += `Reason     : ${data.reason}\n`;
-    content += `======================================\n`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Return_${data.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="returns-page animate-fade-in">
       <div className="page-header">
@@ -114,6 +100,28 @@ const Returns = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="return-form">
+            <div className="form-group mb-4">
+              <label>Date</label>
+              <input 
+                type="date" 
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                required
+                className="w-full"
+              />
+            </div>
+
+            <div className="form-group mb-4">
+              <label>{returnType === 'Customer' ? 'Sale Invoice ID (Optional)' : 'Purchase ID (Optional)'}</label>
+              <input 
+                type="text" 
+                placeholder="e.g. INV-12345"
+                value={referenceId}
+                onChange={(e) => setReferenceId(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
             <div className="form-group mb-4">
               <label>Product</label>
               <select value={product} onChange={(e) => setProduct(e.target.value)} required>
@@ -163,8 +171,18 @@ const Returns = () => {
                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 bg-input border border-gray-700 rounded text-main" />
                <span className="text-muted">to</span>
                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 bg-input border border-gray-700 rounded text-main" />
-               <button className="btn-primary flex-align-gap" onClick={() => window.print()}>
-                  <Printer size={18} /> Print List
+               <button className="btn-primary flex-align-gap" onClick={() => {
+                 const printContents = document.getElementById('printable-all-returns-details').innerHTML;
+                 const originalContents = document.body.innerHTML;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
+                 window.print();
+                 document.body.innerHTML = originalContents;
+                 window.location.reload(); 
+               }}>
+                  <Printer size={18} /> Print All Details
+               </button>
+               <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-all-returns-details', 'Returns_History.pdf')}>
+                  <Download size={18} /> Download PDF
                </button>
              </div>
           </div>
@@ -174,6 +192,7 @@ const Returns = () => {
                  <tr>
                    <th>ID</th>
                    <th>Date</th>
+                   <th>Ref ID</th>
                    <th>Type</th>
                    <th>Product</th>
                    <th>Qty</th>
@@ -186,6 +205,7 @@ const Returns = () => {
                    <tr key={r.id}>
                      <td>{r.id}</td>
                      <td>{r.date.split('T')[0]}</td>
+                     <td>{r.referenceId || '-'}</td>
                      <td>
                         <span className={`badge ${r.returnType === 'Customer' ? 'bg-success text-success' : 'bg-danger text-danger'}`} style={{padding: '0.2rem 0.5rem', borderRadius: '4px', background: r.returnType === 'Customer' ? 'rgba(40,167,69,0.1)' : 'rgba(220,53,69,0.1)'}}>
                           {r.returnType} {r.returnType === 'Customer' ? 'Return' : 'Reject'}
@@ -199,10 +219,7 @@ const Returns = () => {
                           <button className="btn-icon" title="View & Print" onClick={() => setSelectedInvoice(r)}>
                             <Eye size={16} />
                           </button>
-                          <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(r)}>
-                            <Download size={16} />
-                          </button>
-                        </div>
+</div>
                      </td>
                    </tr>
                  ))}
@@ -210,49 +227,102 @@ const Returns = () => {
                </tbody>
              </table>
           </div>
+          
+          <div style={{ display: 'none' }}>
+            <div id="printable-all-returns-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+              <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Returns & Rejects History</h3>
+              {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
+              
+              <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', border: '1px solid #ccc' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Date</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Return ID</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Ref ID</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Type</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Product</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'center'}}>Qty</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Reason</th>
+                    <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReturns.map(r => (
+                     <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{new Date(r.date).toLocaleDateString()}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{r.id}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{r.referenceId || '-'}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{r.returnType}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{getProductName(r.productId)} (ID: {r.productId})</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'center', verticalAlign: 'top'}}>{r.quantity}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{r.reason}</td>
+                       <td style={{border: '1px solid #ccc', padding: '0.4rem', verticalAlign: 'top'}}>{r.notes || '-'}</td>
+                     </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Single Return Modal */}
-      {selectedInvoice && (
-        <div className="modal-overlay" style={{ zIndex: 100 }}>
-          <div className="modal-content glass" style={{ maxWidth: '400px' }}>
-            <div id="printable-single-return" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
-               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
-                 {selectedInvoice.returnType} {selectedInvoice.returnType === 'Customer' ? 'Return' : 'Reject'} Receipt<br/>
-                 ID: {selectedInvoice.id}<br/>
-                 Date: {new Date(selectedInvoice.date).toLocaleString()}
-               </p>
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               
-               <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                 <p><strong>Product Name:</strong> {getProductName(selectedInvoice.productId)}</p>
-                 <p><strong>Quantity:</strong> <span className="font-bold text-lg">{selectedInvoice.quantity}</span></p>
-                 <p><strong>Reason:</strong> {selectedInvoice.reason}</p>
-                 <p><strong>Effect:</strong> {selectedInvoice.returnType === 'Customer' ? 'Added to Stock (+)' : 'Removed from Stock (-)'}</p>
-               </div>
-               
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#666', marginTop: '1rem' }}>
-                 Thank you!
-               </p>
+      {/* Single Return Drawer */}
+      {selectedInvoice && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header" style={{ backgroundColor: '#f1f5f9' }}>
+              <h3 style={{ margin: 0 }}>Return Receipt</h3>
+              <button className="drawer-close-btn" onClick={() => setSelectedInvoice(null)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
             </div>
-            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-              <button className="btn-outline" onClick={() => setSelectedInvoice(null)}>Close</button>
-              <button className="btn-primary flex-align-gap" onClick={() => {
+            
+            <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
+              <div id="printable-single-return" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
+                   {selectedInvoice.returnType} {selectedInvoice.returnType === 'Customer' ? 'Return' : 'Reject'} Receipt<br/>
+                   ID: {selectedInvoice.id}<br/>
+                   Date: {new Date(selectedInvoice.date).toLocaleString()}
+                 </p>
+                 <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                 
+                 <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                   <p><strong>Product Name:</strong> {getProductName(selectedInvoice.productId)}</p>
+                   {selectedInvoice.referenceId && (
+                     <p><strong>{selectedInvoice.returnType === 'Customer' ? 'Sale Invoice ID' : 'Purchase ID'}:</strong> {selectedInvoice.referenceId}</p>
+                   )}
+                   <p><strong>Quantity:</strong> <span className="font-bold text-xl">{selectedInvoice.quantity}</span></p>
+                   <p><strong>Reason:</strong> {selectedInvoice.reason}</p>
+                   <p><strong>Effect:</strong> {selectedInvoice.returnType === 'Customer' ? 'Added to Stock (+)' : 'Removed from Stock (-)'}</p>
+                 </div>
+                 
+                 <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                 <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#666', marginTop: '1.5rem' }}>
+                   Thank you!
+                 </p>
+              </div>
+            </div>
+
+            <div className="drawer-footer" style={{ justifyContent: 'center', gap: '1rem' }}>
+              <button className="btn-primary flex-align-gap" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => {
                  const printContents = document.getElementById('printable-single-return').innerHTML;
                  const originalContents = document.body.innerHTML;
-                 document.body.innerHTML = printContents;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
                  window.print();
                  document.body.innerHTML = originalContents;
                  window.location.reload(); 
               }}>
-                <Printer size={18} /> Print
+                <Printer size={20} /> Print Receipt
+              </button>
+              <button className="btn-outline flex-align-gap text-info" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => downloadAsPDF('printable-single-return', `Return_${selectedInvoice.id}.pdf`)}>
+                <Download size={20} /> Download PDF
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

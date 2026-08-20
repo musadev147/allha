@@ -194,8 +194,17 @@ input:focus, select:focus, textarea:focus {
     font-weight: bold;
     color: #000;
   }
-  .sidebar, .topbar, .page-header, .segmented-control, .card-toolbar, .return-type-selector, .toolbar-actions, .barcode-form, .quick-add, .checkout-actions {
+  .sidebar, .topbar, .page-header, .segmented-control, .card-toolbar, .return-type-selector, .toolbar-actions, .barcode-form, .quick-add, .checkout-actions, .hide-on-print {
     display: none !important;
+  }
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
   }
   .app-container {
     height: auto !important;
@@ -208,10 +217,6 @@ input:focus, select:focus, textarea:focus {
     padding: 0 !important;
     display: block !important;
   }
-  body {
-    background: #fff !important;
-    color: #000 !important;
-  }
   .card, .glass {
     box-shadow: none !important;
     background: none !important;
@@ -222,4 +227,10 @@ input:focus, select:focus, textarea:focus {
     border: 1px solid #ddd !important;
     color: #000 !important;
   }
+  .data-table th:last-child, .data-table td:last-child {
+    display: none !important;
+  }
 }
+@media print { div[style*='position: fixed'], div[style*='position:fixed'], iframe { display: none !important; } }
+@media print { body > *:not(#print-wrapper) { display: none !important; } }
+@media print { html > *:not(body), body > *:not(#print-wrapper) { display: none !important; } }

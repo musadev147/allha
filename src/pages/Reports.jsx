@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { BarChart, PieChart, TrendingUp, DollarSign, Users, Package, Calendar, Printer, Database, ShoppingCart, Download, Eye } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { BarChart, PieChart, TrendingUp, DollarSign, Users, Package, Calendar, Printer, Database, ShoppingCart, Download, Eye, Plus, X, Gift } from 'lucide-react';
 import useStore from '../store/useStore';
+import { downloadAsPDF } from '../utils/pdfGenerator';
 
 const Reports = () => {
   const [activeTab, setActiveTab] = useState('Sales');
@@ -9,63 +11,6 @@ const Reports = () => {
   const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [invoiceType, setInvoiceType] = useState(''); // 'Sale' or 'Purchase'
-
-  const handleDownload = (data, type) => {
-    let content = `======================================\n`;
-    content += `      ${type.toUpperCase()} DOCUMENT\n`;
-    content += `======================================\n`;
-    
-    if (type === 'Sale' || type === 'Purchase') {
-      content += `Invoice ID : ${data.id}\n`;
-      content += `Date       : ${new Date(data.date).toLocaleString()}\n`;
-      if (data.customerName) content += `Customer   : ${data.customerName}\n`;
-      if (data.supplierName) content += `Supplier   : ${data.supplierName}\n`;
-      content += `Payment    : ${data.paymentType}\n`;
-      content += `--------------------------------------\n`;
-      content += `Items:\n`;
-      data.items.forEach(item => {
-        content += `- ${item.name} | Qty: ${item.quantity} | Price: ৳${item.price}\n`;
-      });
-      content += `--------------------------------------\n`;
-      content += `Total      : ৳${data.total}\n`;
-    } else if (type === 'Payroll') {
-       content += `Staff Name : ${data.staffName}\n`;
-       content += `Month      : ${data.month}\n`;
-       content += `Net Pay    : ৳${data.netPay}\n`;
-       content += `Bonus      : ৳${data.bonus}\n`;
-       content += `Date       : ${data.paymentDate.split('T')[0]}\n`;
-       content += `--------------------------------------\n`;
-       content += `Total Paid : ৳${data.netPay + data.bonus}\n`;
-    } else if (type === 'Customer Due' || type === 'Supplier Due') {
-       content += `Name       : ${data.name}\n`;
-       content += `Phone      : ${data.phone}\n`;
-       content += `Total Due  : ৳${data.due}\n`;
-    } else if (type === 'Stock') {
-       content += `Item Name  : ${data.name}\n`;
-       content += `Category   : ${data.category}\n`;
-       content += `All Time In: +${data.totalIn}\n`;
-       content += `All Time Out: -${data.totalOut}\n`;
-       content += `Stock      : ${data.stock} ${data.unit}\n`;
-    } else if (type === 'Salesman') {
-       content += `Salesman   : ${data.name}\n`;
-       content += `Invoices   : ${data.count}\n`;
-       content += `Total Sales: ৳${data.total}\n`;
-    } else if (type === 'Expense') {
-       content += `Category   : ${data.category}\n`;
-       content += `Amount     : ৳${data.amount}\n`;
-    }
-    
-    content += `======================================\n`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${type.replace(/\s+/g, '_')}_${data.id || data.name || data.category || 'report'}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const { sales, inventory, purchases, expenses, customers, suppliers, staff, payrolls, returns, attendance, leaves, loadDummyData } = useStore();
 
   const today = new Date();
@@ -131,6 +76,36 @@ const Reports = () => {
   const totalCost = totalPurchasesCost + totalExpenseCost;
   const netProfit = totalSalesAmount - totalCost;
 
+  // Prepare Profit & Loss Detailed Ledger
+  let currentBalance = 0;
+  const profitLossDetails = [
+    ...filteredSales.map(s => ({
+      id: s.id,
+      date: s.date,
+      type: 'Sale (Revenue)',
+      amount: s.total,
+      isRevenue: true
+    })),
+    ...filteredPurchases.map(p => ({
+      id: p.id,
+      date: p.date,
+      type: 'Purchase (Cost)',
+      amount: p.total,
+      isRevenue: false
+    })),
+    ...filteredExpenses.map(e => ({
+      id: e.id || 'EXP' + Date.now() + Math.random(),
+      date: e.date,
+      type: `Expense (${e.category})`,
+      amount: e.amount,
+      isRevenue: false
+    }))
+  ].sort((a, b) => new Date(a.date) - new Date(b.date)).map(item => {
+    if (item.isRevenue) currentBalance += item.amount;
+    else currentBalance -= item.amount;
+    return { ...item, balance: currentBalance };
+  });
+
   // 4. Due Report Data
   const dueCustomers = customers.filter(c => c.due > 0);
   const dueSuppliers = suppliers.filter(s => s.due > 0);
@@ -141,9 +116,10 @@ const Reports = () => {
   const salesmanData = {};
   filteredSales.forEach(s => {
     const sm = s.salesmanName || 'Unknown';
-    if (!salesmanData[sm]) salesmanData[sm] = { count: 0, total: 0 };
+    if (!salesmanData[sm]) salesmanData[sm] = { count: 0, total: 0, sales: [] };
     salesmanData[sm].count += 1;
     salesmanData[sm].total += s.total;
+    salesmanData[sm].sales.push(s);
   });
 
   // 6. Expense Report Data
@@ -167,10 +143,30 @@ const Reports = () => {
     { id: 'Salesman', label: 'Salesman', icon: Users },
     { id: 'Expense', label: 'Expense', icon: PieChart },
     { id: 'HR', label: 'HR & Payroll', icon: Calendar },
+    { id: 'Gifts', label: 'Gifts Given', icon: Gift },
   ];
 
+  // 8. Gifts Data
+  const giftItems = [];
+  filteredSales.forEach(sale => {
+    sale.items.forEach(item => {
+      if (item.isGift) {
+        giftItems.push({
+          date: sale.date,
+          invoiceId: sale.id,
+          customerName: sale.customerInfo?.name,
+          customerPhone: sale.customerInfo?.phone,
+          itemName: item.name,
+          quantity: item.quantity,
+          value: (item.price - (item.itemDiscount || 0)) * item.quantity
+        });
+      }
+    });
+  });
+  const totalGiftValue = giftItems.reduce((acc, g) => acc + g.value, 0);
+
   return (
-    <div className="reports-page animate-fade-in">
+    <div className="reports-page animate-fade-in" id="reports-page-container">
       <div className="page-header">
         <div>
           <h1>Reports & Analytics</h1>
@@ -198,6 +194,9 @@ const Reports = () => {
           )}
           <button className="btn-primary flex-align-gap" onClick={() => window.print()}>
             <Printer size={18} /> Print Report
+          </button>
+          <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('reports-page-container', `Reports_${dateFilter}.pdf`)}>
+            <Download size={18} /> Download PDF
           </button>
         </div>
       </div>
@@ -238,10 +237,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(s); setInvoiceType('Sale'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(s, 'Sale')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -278,10 +274,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(p); setInvoiceType('Purchase'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(p, 'Purchase')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -313,10 +306,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(item); setInvoiceType('Stock'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(item, 'Stock')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -344,6 +334,44 @@ const Reports = () => {
                <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-success' : 'text-danger'}`}>৳{netProfit.toLocaleString()}</p>
              </div>
           </div>
+          
+          <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#000' }}>Detailed Breakdown</h4>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Transaction Type</th>
+                  <th style={{ textAlign: 'right' }}>Revenue (In)</th>
+                  <th style={{ textAlign: 'right' }}>Cost (Out)</th>
+                  <th style={{ textAlign: 'right' }}>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profitLossDetails.length > 0 ? (
+                  profitLossDetails.map((item, idx) => (
+                    <tr key={item.id + idx}>
+                      <td>{new Date(item.date).toLocaleDateString()}</td>
+                      <td>{item.type}</td>
+                      <td style={{ textAlign: 'right', color: item.isRevenue ? '#10b981' : 'inherit', fontWeight: item.isRevenue ? 'bold' : 'normal' }}>
+                        {item.isRevenue ? `+৳${item.amount.toLocaleString()}` : '-'}
+                      </td>
+                      <td style={{ textAlign: 'right', color: !item.isRevenue ? 'red' : 'inherit', fontWeight: !item.isRevenue ? 'bold' : 'normal' }}>
+                        {!item.isRevenue ? `-৳${item.amount.toLocaleString()}` : '-'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                        ৳{item.balance.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="text-center text-muted" style={{ padding: '1.5rem' }}>No transactions found for this period.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -363,10 +391,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(c); setInvoiceType('Customer Due'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(c, 'Customer Due')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>)}
                   {dueCustomers.length === 0 && <tr><td colSpan="4" className="text-center text-muted">No customer dues.</td></tr>}
@@ -387,10 +412,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(s); setInvoiceType('Supplier Due'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(s, 'Supplier Due')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>)}
                   {dueSuppliers.length === 0 && <tr><td colSpan="4" className="text-center text-muted">No supplier dues.</td></tr>}
@@ -419,10 +441,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice({ name: sm, ...salesmanData[sm] }); setInvoiceType('Salesman'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload({ name: sm, ...salesmanData[sm] }, 'Salesman')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -451,10 +470,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice({ category: cat, amount: expenseByCategory[cat] }); setInvoiceType('Expense'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload({ category: cat, amount: expenseByCategory[cat] }, 'Expense')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -495,10 +511,7 @@ const Reports = () => {
                         <button className="btn-icon" title="View & Print" onClick={() => { setSelectedInvoice(p); setInvoiceType('Payroll'); }}>
                           <Eye size={16} />
                         </button>
-                        <button className="btn-icon text-info" title="Download" onClick={() => handleDownload(p, 'Payroll')}>
-                          <Download size={16} />
-                        </button>
-                      </div>
+</div>
                     </td>
                   </tr>
                 ))}
@@ -509,109 +522,194 @@ const Reports = () => {
         </div>
       )}
 
-      {/* Invoice Modal for Print */}
-      {selectedInvoice && (
-        <div className="modal-overlay" style={{ zIndex: 100 }}>
-          <div className="modal-content glass" style={{ maxWidth: '400px' }}>
-            <div id="printable-single-invoice" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
-               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
-                 {invoiceType} Document<br/>
-                 {selectedInvoice.date && `Date: ${new Date(selectedInvoice.date).toLocaleString()}`}
-                 {selectedInvoice.paymentDate && `Date: ${selectedInvoice.paymentDate.split('T')[0]}`}
-               </p>
-               <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-               
-               {(invoiceType === 'Sale' || invoiceType === 'Purchase') && (
-                 <>
-                   <div style={{ fontSize: '0.85rem', marginBottom: '1rem', color: '#333' }}>
-                     {selectedInvoice.customerName && <><strong>Customer:</strong> {selectedInvoice.customerName}<br/></>}
-                     {selectedInvoice.supplierName && <><strong>Supplier:</strong> {selectedInvoice.supplierName}<br/></>}
-                     <strong>Payment:</strong> {selectedInvoice.paymentType}
-                   </div>
-                   <table style={{ width: '100%', fontSize: '0.9rem', marginBottom: '1rem', color: '#000' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #eee' }}><th style={{textAlign: 'left', paddingBottom: '0.5rem'}}>Item</th><th style={{textAlign: 'right', paddingBottom: '0.5rem'}}>Total</th></tr>
-                      </thead>
-                      <tbody>
-                        {selectedInvoice.items.map((item, idx) => (
-                          <tr key={idx}>
-                            <td style={{ paddingTop: '0.5rem' }}>{item.name} <br/> <small style={{ color: '#666' }}>{item.quantity} x ৳{item.price}</small></td>
-                            <td style={{textAlign: 'right', paddingTop: '0.5rem'}}>৳{item.price * item.quantity}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                   </table>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: '#000' }}>
-                      <span>Total {invoiceType}:</span><span>৳{selectedInvoice.total}</span>
-                   </div>
-                 </>
-               )}
+      {/* 9. Gifts Report */}
+      {activeTab === 'Gifts' && (
+        <div className="card glass">
+          <h3>Gifts Report ({dateFilter})</h3>
+          <div className="grid responsive-grid-2 mt-4 mb-4">
+             <div className="card bg-input text-center">
+               <h4 className="text-muted">Total Gifts Given</h4>
+               <p className="text-2xl font-bold">{giftItems.reduce((sum, item) => sum + item.quantity, 0)} Items</p>
+             </div>
+             <div className="card bg-input text-center">
+               <h4 className="text-muted">Total Gift Value</h4>
+               <p className="text-2xl text-primary font-bold">৳{totalGiftValue.toLocaleString()}</p>
+             </div>
+          </div>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Invoice</th>
+                  <th>Customer</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {giftItems.length > 0 ? giftItems.map((g, idx) => (
+                  <tr key={idx}>
+                    <td>{new Date(g.date).toLocaleDateString()}</td>
+                    <td>{g.invoiceId}</td>
+                    <td>
+                      {g.customerName || 'N/A'}
+                      {g.customerPhone && <><br/><small className="text-muted">{g.customerPhone}</small></>}
+                    </td>
+                    <td>{g.itemName}</td>
+                    <td>{g.quantity}</td>
+                    <td>৳{g.value.toLocaleString()}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="6" className="text-center text-muted">No gifts found in this period.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-               {invoiceType === 'Payroll' && (
-                 <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                   <p><strong>Staff Name:</strong> {selectedInvoice.staffName}</p>
-                   <p><strong>Month:</strong> {selectedInvoice.month}</p>
-                   <p><strong>Net Salary:</strong> ৳{selectedInvoice.netPay.toLocaleString()}</p>
-                   <p><strong>Bonus:</strong> ৳{selectedInvoice.bonus.toLocaleString()}</p>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: '#000' }}><strong>Total Paid:</strong> ৳{(selectedInvoice.netPay + selectedInvoice.bonus).toLocaleString()}</p>
-                 </div>
-               )}
-
-               {(invoiceType === 'Customer Due' || invoiceType === 'Supplier Due') && (
-                 <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                   <p><strong>Name:</strong> {selectedInvoice.name}</p>
-                   <p><strong>Phone:</strong> {selectedInvoice.phone}</p>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: 'red' }}><strong>Total Due:</strong> ৳{selectedInvoice.due.toLocaleString()}</p>
-                 </div>
-               )}
-
-               {invoiceType === 'Stock' && (
-                 <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                   <p><strong>Item Name:</strong> {selectedInvoice.name}</p>
-                   <p><strong>Category:</strong> {selectedInvoice.category}</p>
-                   <p><strong>Total In:</strong> <span style={{color:'green'}}>+{selectedInvoice.totalIn}</span></p>
-                   <p><strong>Total Out:</strong> <span style={{color:'red'}}>-{selectedInvoice.totalOut}</span></p>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: '#000' }}><strong>Current Stock:</strong> {selectedInvoice.stock} {selectedInvoice.unit}</p>
-                 </div>
-               )}
-
-               {invoiceType === 'Salesman' && (
-                 <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                   <p><strong>Salesman:</strong> {selectedInvoice.name}</p>
-                   <p><strong>Invoices Handled:</strong> {selectedInvoice.count}</p>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: '#000' }}><strong>Total Sales:</strong> ৳{selectedInvoice.total.toLocaleString()}</p>
-                 </div>
-               )}
-
-               {invoiceType === 'Expense' && (
-                 <div style={{ fontSize: '0.95rem', color: '#333', lineHeight: '1.8' }}>
-                   <p><strong>Category:</strong> {selectedInvoice.category}</p>
-                   <hr style={{ margin: '0.5rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.5rem', color: 'red' }}><strong>Total Expense:</strong> ৳{selectedInvoice.amount.toLocaleString()}</p>
-                 </div>
-               )}
+      {/* Invoice Drawer for Print */}
+      {selectedInvoice && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header" style={{ backgroundColor: '#f1f5f9' }}>
+              <h3 style={{ margin: 0 }}>Document Print</h3>
+              <button className="drawer-close-btn" onClick={() => setSelectedInvoice(null)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
             </div>
-            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-              <button className="btn-outline" onClick={() => setSelectedInvoice(null)}>Close</button>
-              <button className="btn-primary flex-align-gap" onClick={() => {
+            
+            <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
+              <div id="printable-single-invoice" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
+                   {invoiceType} Document<br/>
+                   {selectedInvoice.date && `Date: ${new Date(selectedInvoice.date).toLocaleString()}`}
+                   {selectedInvoice.paymentDate && `Date: ${selectedInvoice.paymentDate.split('T')[0]}`}
+                 </p>
+                 <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                 
+                 {(invoiceType === 'Sale' || invoiceType === 'Purchase') && (
+                   <>
+                     <div style={{ fontSize: '0.9rem', marginBottom: '1.5rem', color: '#333' }}>
+                       {selectedInvoice.customerName && <><strong>Customer:</strong> {selectedInvoice.customerName}<br/></>}
+                       {selectedInvoice.supplierName && <><strong>Supplier:</strong> {selectedInvoice.supplierName}<br/></>}
+                       <strong>Payment:</strong> {selectedInvoice.paymentType}
+                     </div>
+                     <table style={{ width: '100%', fontSize: '0.85rem', marginBottom: '1.5rem', color: '#000', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid #eee' }}><th style={{textAlign: 'left', paddingBottom: '0.5rem'}}>Item</th><th style={{textAlign: 'right', paddingBottom: '0.5rem'}}>Total</th></tr>
+                        </thead>
+                        <tbody>
+                          {selectedInvoice.items.map((item, idx) => (
+                            <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                              <td style={{ padding: '0.75rem 0' }}>{item.name} <br/> <small style={{ color: '#666' }}>{item.quantity} x ৳{item.price}</small></td>
+                              <td style={{textAlign: 'right', padding: '0.75rem 0'}}>৳{item.price * item.quantity}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                     </table>
+                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: '#000' }}>
+                        <span>Total {invoiceType}:</span><span>৳{selectedInvoice.total}</span>
+                     </div>
+                   </>
+                 )}
+
+                 {invoiceType === 'Payroll' && (
+                   <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                     <p><strong>Staff Name:</strong> {selectedInvoice.staffName}</p>
+                     <p><strong>Month:</strong> {selectedInvoice.month}</p>
+                     <p><strong>Net Salary:</strong> ৳{selectedInvoice.netPay.toLocaleString()}</p>
+                     <p><strong>Bonus:</strong> ৳{selectedInvoice.bonus.toLocaleString()}</p>
+                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                     <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: '#000' }}><strong>Total Paid:</strong> ৳{(selectedInvoice.netPay + selectedInvoice.bonus).toLocaleString()}</p>
+                   </div>
+                 )}
+
+                 {(invoiceType === 'Customer Due' || invoiceType === 'Supplier Due') && (
+                   <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                     <p><strong>Name:</strong> {selectedInvoice.name}</p>
+                     <p><strong>Phone:</strong> {selectedInvoice.phone}</p>
+                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                     <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: 'red' }}><strong>Total Due:</strong> ৳{selectedInvoice.due.toLocaleString()}</p>
+                   </div>
+                 )}
+
+                 {invoiceType === 'Stock' && (
+                   <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                     <p><strong>Item Name:</strong> {selectedInvoice.name}</p>
+                     <p><strong>Category:</strong> {selectedInvoice.category}</p>
+                     <p><strong>Total In:</strong> <span style={{color:'green'}}>+{selectedInvoice.totalIn}</span></p>
+                     <p><strong>Total Out:</strong> <span style={{color:'red'}}>-{selectedInvoice.totalOut}</span></p>
+                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                     <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: '#000' }}><strong>Current Stock:</strong> {selectedInvoice.stock} {selectedInvoice.unit}</p>
+                   </div>
+                 )}
+
+                 {invoiceType === 'Salesman' && (
+                   <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                     <p><strong>Salesman:</strong> {selectedInvoice.name}</p>
+                     <p><strong>Invoices Handled:</strong> {selectedInvoice.count}</p>
+                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                     
+                     <h4 style={{marginBottom: '0.5rem', fontWeight: 'bold'}}>Detailed Sales List:</h4>
+                     <table style={{ width: '100%', fontSize: '0.85rem', marginBottom: '1.5rem', color: '#000', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#f8f9fa' }}>
+                             <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Date</th>
+                             <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Invoice ID</th>
+                             <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'left'}}>Customer</th>
+                             <th style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                           {selectedInvoice.sales && selectedInvoice.sales.map((sale, idx) => (
+                             <tr key={idx}>
+                                <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{new Date(sale.date).toLocaleDateString()}</td>
+                                <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{sale.id}</td>
+                                <td style={{border: '1px solid #ccc', padding: '0.4rem'}}>{sale.customerInfo?.name || sale.customerName || 'N/A'}</td>
+                                <td style={{border: '1px solid #ccc', padding: '0.4rem', textAlign: 'right'}}>৳{sale.total.toLocaleString()}</td>
+                             </tr>
+                           ))}
+                        </tbody>
+                     </table>
+
+                     <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '1rem', color: '#000' }}>
+                        Grand Total Sales: ৳{selectedInvoice.total.toLocaleString()}
+                     </div>
+                   </div>
+                 )}
+
+                 {invoiceType === 'Expense' && (
+                   <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: '2' }}>
+                     <p><strong>Category:</strong> {selectedInvoice.category}</p>
+                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
+                     <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: 'red' }}><strong>Total Expense:</strong> ৳{selectedInvoice.amount.toLocaleString()}</p>
+                   </div>
+                 )}
+              </div>
+            </div>
+
+            <div className="drawer-footer" style={{ justifyContent: 'center', gap: '1rem' }}>
+              <button className="btn-primary flex-align-gap" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => {
                  const printContents = document.getElementById('printable-single-invoice').innerHTML;
                  const originalContents = document.body.innerHTML;
-                 document.body.innerHTML = printContents;
+                 document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
                  window.print();
                  document.body.innerHTML = originalContents;
                  window.location.reload(); 
               }}>
-                <Printer size={18} /> Print
+                <Printer size={20} /> Print Document
+              </button>
+              <button className="btn-outline flex-align-gap text-info" style={{ padding: '0.75rem 2rem', fontSize: '0.9rem', borderRadius: '99px' }} onClick={() => downloadAsPDF('printable-single-invoice', `Invoice_${selectedInvoice.id}.pdf`)}>
+                <Download size={20} /> Download PDF
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
