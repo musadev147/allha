@@ -244,6 +244,7 @@ body:not(.light-mode) .data-table th {
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  padding: 1rem;
 }
 
 .modal-content {
@@ -254,6 +255,8 @@ body:not(.light-mode) .data-table th {
   border-radius: 30px;
   min-width: 450px;
   max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: var(--shadow-lg), inset 0 1px 1px rgba(255,255,255,0.3);
   border: 1px solid var(--border-color);
 }

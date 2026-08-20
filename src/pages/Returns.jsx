@@ -218,7 +218,7 @@ const Returns = () => {
         <div className="modal-overlay" style={{ zIndex: 100 }}>
           <div className="modal-content glass" style={{ maxWidth: '400px' }}>
             <div id="printable-single-return" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000' }}>আল্লাহর দান জন্টস পেয়ন্ট</h2>
+               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
                <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                  {selectedInvoice.returnType} {selectedInvoice.returnType === 'Customer' ? 'Return' : 'Reject'} Receipt<br/>
                  ID: {selectedInvoice.id}<br/>

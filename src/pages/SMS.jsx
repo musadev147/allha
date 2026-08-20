@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 import useStore from '../store/useStore';
-import { Send, MessageSquare, Users } from 'lucide-react';
+import { Send, MessageSquare, Users, Search } from 'lucide-react';
 
 const SMS = () => {
   const { customers, user } = useStore();
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (c.phone && c.phone.includes(searchTerm))
+  );
 
   // Only Admin can send SMS based on the requirement
   if (user?.role !== 'Admin') {
@@ -20,7 +26,7 @@ const SMS = () => {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedCustomers(customers.map(c => c.id));
+      setSelectedCustomers(filteredCustomers.map(c => c.id));
     } else {
       setSelectedCustomers([]);
     }
@@ -72,13 +78,25 @@ const SMS = () => {
             <label className="flex-align-gap" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
               <input 
                 type="checkbox" 
-                checked={selectedCustomers.length === customers.length && customers.length > 0}
+                checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
                 onChange={handleSelectAll}
               />
               Select All
             </label>
           </div>
           
+          <div style={{ marginBottom: '1rem', position: 'relative' }}>
+             <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted, #9ca3af)' }} />
+             <input 
+               type="text"
+               placeholder="Search customers by name or phone..."
+               className="w-full"
+               style={{ paddingLeft: '35px' }}
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
+          </div>
+
           <div className="table-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
             <table className="data-table">
               <thead>
@@ -90,10 +108,10 @@ const SMS = () => {
                 </tr>
               </thead>
               <tbody>
-                {customers.length === 0 ? (
+                {filteredCustomers.length === 0 ? (
                   <tr><td colSpan="4" className="text-center text-muted">No customers found.</td></tr>
                 ) : (
-                  customers.map(c => (
+                  filteredCustomers.map(c => (
                     <tr key={c.id}>
                       <td>
                         <input 

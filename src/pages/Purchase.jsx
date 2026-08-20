@@ -100,10 +100,16 @@ const Purchase = () => {
             </div>
             <div className="qe-field">
               <label>Supplier</label>
-              <select value={supplier} onChange={(e) => setSupplier(e.target.value)} style={{ width: '180px' }}>
-                <option value="">-- Choose --</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <input 
+                list="suppliers-list"
+                placeholder="Search or Type Custom..."
+                value={supplier} 
+                onChange={(e) => setSupplier(e.target.value)} 
+                style={{ width: '180px' }} 
+              />
+              <datalist id="suppliers-list">
+                {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </datalist>
             </div>
             <div className="qe-field">
               <label>Payment</label>
@@ -119,18 +125,20 @@ const Purchase = () => {
         <div className="qe-input-row">
           <div className="qe-field">
             <label>Product</label>
-            <select 
-              value={tempProductId} 
+            <input 
+              list="inventory-products"
+              placeholder="Search or Type Custom Product..."
+              value={tempProductId}
               onChange={(e) => {
                 const val = e.target.value;
                 setTempProductId(val);
-                const prod = inventory.find(p => p.id === val);
+                const prod = inventory.find(p => p.name === val || p.id === val);
                 if (prod) setTempPrice(prod.price);
               }}
-            >
-              <option value="">Search or Select Product...</option>
-              {inventory.map(p => <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock})</option>)}
-            </select>
+            />
+            <datalist id="inventory-products">
+              {inventory.map(p => <option key={p.id} value={p.name}>{p.name} (Stock: {p.stock})</option>)}
+            </datalist>
           </div>
           <div className="qe-field">
             <label>Quantity</label>
@@ -155,17 +163,19 @@ const Purchase = () => {
             style={{ height: '42px', padding: '0 1.5rem' }}
             onClick={() => {
               if (!tempProductId || tempQty <= 0) return;
-              const prod = inventory.find(p => p.id === tempProductId);
-              if (!prod) return;
+              
+              const prod = inventory.find(p => p.name === tempProductId || p.id === tempProductId);
+              const finalId = prod ? prod.id : `CUSTOM_${Date.now()}`;
+              const finalName = prod ? prod.name : tempProductId;
               
               const newItems = [...items.filter(i => i.productId)];
-              const existingIndex = newItems.findIndex(i => i.productId === tempProductId);
+              const existingIndex = newItems.findIndex(i => i.productId === finalId);
               
               if (existingIndex >= 0) {
                 newItems[existingIndex].quantity += tempQty;
                 newItems[existingIndex].price = tempPrice; 
               } else {
-                newItems.push({ productId: prod.id, name: prod.name, quantity: tempQty, price: tempPrice });
+                newItems.push({ productId: finalId, name: finalName, quantity: tempQty, price: tempPrice });
               }
               
               setItems(newItems);
@@ -250,11 +260,13 @@ const Purchase = () => {
                   return;
                 }
                 
-                const supplierObj = suppliers.find(s => s.id === supplier);
+                const supplierObj = suppliers.find(s => s.name === supplier || s.id === supplier);
+                const finalSupplierId = supplierObj ? supplierObj.id : `SUP_CUSTOM_${Date.now()}`;
+                const finalSupplierName = supplierObj ? supplierObj.name : supplier;
                 
                 processPurchase({
-                  supplierId: supplier,
-                  supplierName: supplierObj ? supplierObj.name : 'Unknown',
+                  supplierId: finalSupplierId,
+                  supplierName: finalSupplierName,
                   paymentType,
                   items: validItems,
                   total,
@@ -347,7 +359,7 @@ const Purchase = () => {
         <div className="modal-overlay" style={{ zIndex: 100 }}>
           <div className="modal-content glass" style={{ maxWidth: '400px' }}>
             <div id="printable-single-invoice-pur" style={{ padding: '1.5rem', background: '#fff', color: '#000', borderRadius: '8px' }}>
-               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000' }}>আল্লাহর দান জন্টস পেয়ন্ট</h2>
+               <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '2rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
                <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                  Purchase Receipt: {selectedInvoice.id}<br/>
                  Date: {new Date(selectedInvoice.date).toLocaleString()}

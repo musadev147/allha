@@ -22,7 +22,7 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card card animate-fade-in">
         <div className="login-header">
-          <h2>আল্লাহর দান জন্টস পেয়ন্ট</h2>
+          <h2>আল্লাহর দান জেন্টস পয়েন্ট</h2>
           <p>Login to your account</p>
         </div>
         <form onSubmit={handleLogin} className="login-form">
