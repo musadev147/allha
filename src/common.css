@@ -108,9 +108,10 @@
   color: #ffffff;
   border-radius: var(--radius-full);
   font-weight: 600;
-  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
-  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4), inset 0 1px 1px rgba(255,255,255,0.3);
+  border: none;
   letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .btn-primary:hover {
@@ -199,6 +200,13 @@ body:not(.light-mode) .data-table th {
 
 .data-table tbody tr:hover {
   background-color: var(--bg-hover);
+  box-shadow: var(--shadow-sm);
+}
+.data-table tbody tr td {
+  transition: padding 0.3s ease;
+}
+.data-table tbody tr:hover td {
+  padding-left: 1.2rem;
 }
 
 .data-table tbody tr:last-child td {
