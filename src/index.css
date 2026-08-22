@@ -211,7 +211,7 @@ input:focus, select:focus, textarea:focus {
     overflow: visible !important;
     display: block !important;
   }
-  .main-content, .content-area {
+  .main-content, .content-area, .table-responsive {
     overflow: visible !important;
     height: auto !important;
     padding: 0 !important;
@@ -232,5 +232,5 @@ input:focus, select:focus, textarea:focus {
   }
 }
 @media print { div[style*='position: fixed'], div[style*='position:fixed'], iframe { display: none !important; } }
-@media print { body > *:not(#print-wrapper) { display: none !important; } }
-@media print { html > *:not(body), body > *:not(#print-wrapper) { display: none !important; } }
+@media print { body > *:not(#print-wrapper):not(#root):not(#pdf-print-wrapper) { display: none !important; } }
+@media print { html > *:not(body) { display: none !important; } }

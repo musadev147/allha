@@ -5,9 +5,37 @@ import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 
 const Suppliers = () => {
-  const { suppliers, addSupplier } = useStore();
+  const { suppliers, addSupplier, purchases, settlements } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPerson, setSelectedPerson] = useState(null);
+
+  const getSupplierTransactions = (supplierId) => {
+    if (!supplierId) return [];
+    
+    const supplierPurchases = (purchases || []).filter(p => p.supplierId === supplierId).map(p => ({
+      id: p.id,
+      date: p.date,
+      type: 'Purchase',
+      description: `Purchase (${p.paymentType})`,
+      amount: p.total,
+      isCredit: true
+    }));
+
+    const supplierSettlements = (settlements || []).filter(s => s.targetId === supplierId && s.type === 'Supplier').map(s => ({
+      id: s.id,
+      date: s.date,
+      type: 'Payment',
+      description: 'Payment to Supplier',
+      amount: s.amount,
+      isCredit: false
+    }));
+
+    return [...supplierPurchases, ...supplierSettlements].sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
+
+  const selectedPersonTransactions = selectedPerson ? getSupplierTransactions(selectedPerson.id) : [];
+  const totalPurchased = selectedPersonTransactions.filter(t => t.type === 'Purchase').reduce((sum, t) => sum + t.amount, 0);
+  const totalPaid = selectedPersonTransactions.filter(t => t.type === 'Payment').reduce((sum, t) => sum + t.amount, 0);
   
   // Add Supplier Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,29 +103,38 @@ const Suppliers = () => {
                 <th>ID</th>
                 <th>Name</th>
                 <th>Phone</th>
+                <th>Total Purchase</th>
+                <th>Total Paid</th>
                 <th>Total Due (BDT)</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredList.length === 0 ? (
-                <tr><td colSpan="5" className="text-center text-muted">No suppliers found.</td></tr>
+                <tr><td colSpan="7" className="text-center text-muted">No suppliers found.</td></tr>
               ) : (
-                filteredList.map((person) => (
-                  <tr key={person.id}>
-                    <td>{person.id}</td>
-                    <td>{person.name}</td>
-                    <td className="flex-align-gap"><Phone size={14} className="text-muted" /> {person.phone || 'N/A'}</td>
-                    <td><span className={person.due > 0 ? "text-danger font-bold" : "text-success font-bold"}>৳{person.due.toLocaleString()}</span></td>
-                    <td>
-                      <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
-                        <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
-                          <Eye size={16} />
-                        </button>
-</div>
-                    </td>
-                  </tr>
-                ))
+                filteredList.map((person) => {
+                  const pt = getSupplierTransactions(person.id);
+                  const pTotalPurchased = pt.filter(t => t.type === 'Purchase').reduce((sum, t) => sum + t.amount, 0);
+                  const pTotalPaid = pt.filter(t => t.type === 'Payment').reduce((sum, t) => sum + t.amount, 0);
+                  return (
+                    <tr key={person.id}>
+                      <td>{person.id}</td>
+                      <td>{person.name}</td>
+                      <td className="flex-align-gap"><Phone size={14} className="text-muted" /> {person.phone || 'N/A'}</td>
+                      <td>৳{pTotalPurchased.toLocaleString()}</td>
+                      <td>৳{pTotalPaid.toLocaleString()}</td>
+                      <td><span className={person.due > 0 ? "text-danger font-bold" : "text-success font-bold"}>৳{person.due.toLocaleString()}</span></td>
+                      <td>
+                        <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
+                          <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
+                            <Eye size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -222,7 +259,47 @@ const Suppliers = () => {
                    <p><strong>Name:</strong> {selectedPerson.name}</p>
                    <p><strong>Phone:</strong> {selectedPerson.phone || 'N/A'}</p>
                    <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
-                   <p style={{ fontWeight: 'bold', fontSize: '0.9rem', marginTop: '1rem', color: selectedPerson.due > 0 ? 'red' : 'green' }}><strong>Total Due:</strong> ৳{selectedPerson.due.toLocaleString()}</p>
+                   
+                   <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #e2e8f0', marginTop: '1rem' }}>
+                     <div style={{ textAlign: 'center' }}>
+                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.25rem' }}>Total Purchase (মাল কেনা)</p>
+                       <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#0f172a' }}>৳{totalPurchased.toLocaleString()}</p>
+                     </div>
+                     <div style={{ textAlign: 'center' }}>
+                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.25rem' }}>Total Paid (জমা)</p>
+                       <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#10b981' }}>৳{totalPaid.toLocaleString()}</p>
+                     </div>
+                     <div style={{ textAlign: 'center' }}>
+                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.25rem' }}>Current Due (বাকি)</p>
+                       <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: selectedPerson.due > 0 ? '#ef4444' : '#10b981' }}>৳{selectedPerson.due.toLocaleString()}</p>
+                     </div>
+                   </div>
+                   
+                   {selectedPersonTransactions.length > 0 && (
+                     <div style={{ marginTop: '1.5rem' }}>
+                       <h4 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '0.75rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Transaction History (লেনদেন)</h4>
+                       <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                         <thead>
+                           <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                             <th style={{ padding: '0.5rem', textAlign: 'left' }}>Date</th>
+                             <th style={{ padding: '0.5rem', textAlign: 'left' }}>Details</th>
+                             <th style={{ padding: '0.5rem', textAlign: 'right' }}>Amount</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           {selectedPersonTransactions.map(t => (
+                             <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                               <td style={{ padding: '0.5rem' }}>{new Date(t.date).toLocaleDateString()}</td>
+                               <td style={{ padding: '0.5rem' }}>{t.description}</td>
+                               <td style={{ padding: '0.5rem', textAlign: 'right', color: t.isCredit ? 'red' : 'green' }}>
+                                  {t.isCredit ? '+' : '-'}৳{t.amount.toLocaleString()}
+                               </td>
+                             </tr>
+                           ))}
+                         </tbody>
+                       </table>
+                     </div>
+                   )}
                  </div>
               </div>
             </div>
