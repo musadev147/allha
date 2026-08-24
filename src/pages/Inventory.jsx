@@ -203,7 +203,7 @@ const Inventory = () => {
       {/* Hidden Printable Inventory List (Excel Style) */}
       <div id="printable-inventory-list" style={{ display: 'none' }}>
         <div style={{ padding: '1.5rem', background: '#fff', color: '#000', fontFamily: 'sans-serif' }}>
-          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
           <p style={{ textAlign: 'center', fontSize: '1rem', marginBottom: '0.5rem', color: '#333' }}>Inventory Stock List</p>
           <p style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '1.5rem', color: '#666' }}>
             Date Filter: {filterDate} {filterDate === 'Custom' ? `(${customDateRange.start} to ${customDateRange.end})` : ''}

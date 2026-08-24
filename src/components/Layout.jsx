@@ -72,7 +72,7 @@ const Layout = () => {
       <aside className="sidebar glass">
         <div className="sidebar-header">
           <div>
-            <h2>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+            <h2>Allah Dan</h2>
             <span className="role-badge">{user?.role}</span>
           </div>
           <button 
@@ -123,7 +123,7 @@ const Layout = () => {
         </header>
         <div className="content-area">
           <div className="print-only-header">
-            <h2>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+            <h2>Allah Dan</h2>
           </div>
           <Outlet />
         </div>

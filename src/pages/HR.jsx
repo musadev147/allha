@@ -450,7 +450,7 @@ const HR = () => {
               <div id="printable-single-staff" style={{ padding: '1.5rem', color: '#1e293b' }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', borderBottom: '3px solid #e2e8f0', paddingBottom: '1.5rem', marginBottom: '2.5rem' }}>
-                  <h2 style={{ fontSize: '2.4rem', fontWeight: 'bold', margin: '0 0 0.5rem', color: '#0f172a' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                  <h2 style={{ fontSize: '2.4rem', fontWeight: 'bold', margin: '0 0 0.5rem', color: '#0f172a' }}>Allah Dan</h2>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Staff Details Document</p>
                 </div>
 

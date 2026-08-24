@@ -390,7 +390,7 @@ const Purchase = () => {
 
         <div style={{ display: 'none' }}>
           <div id="printable-all-purchases-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
             <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Purchase History</h3>
             {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
             
@@ -465,7 +465,7 @@ const Purchase = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-invoice-pur" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Purchase Receipt: {selectedInvoice.id}<br/>
                    Date: {new Date(selectedInvoice.date).toLocaleString()}

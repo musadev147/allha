@@ -583,7 +583,7 @@ const Reports = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-invoice" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>আল্লাহর দান জেন্টস পয়েন্ট</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    {invoiceType} Document<br/>
                    {selectedInvoice.date && `Date: ${new Date(selectedInvoice.date).toLocaleString()}`}
