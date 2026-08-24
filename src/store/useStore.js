@@ -6,7 +6,9 @@ const useStore = create(
     (set, get) => ({
       // App State
       user: null, // { id, name, role: 'Admin' | 'Salesman' }
-      theme: 'dark',
+      themeGradient: 'theme-sky',
+      setThemeGradient: (gradient) => set({ themeGradient: gradient }),
+      theme: 'dark', // Keeping for legacy/other components if used
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
       login: (userData) => set({ user: userData }),
       logout: () => set({ user: null }),
@@ -167,7 +169,7 @@ const useStore = create(
         };
       }),
 
-      processPurchase: ({ items, supplierId, supplierName, paymentType, total }) => set((state) => {
+      processPurchase: ({ items, supplierId, supplierName, paymentType, total, paidAmount = 0 }) => set((state) => {
         const newInventory = [...state.inventory];
         
         items.forEach(item => {
@@ -188,10 +190,12 @@ const useStore = create(
         });
 
         const newSuppliers = [...state.suppliers];
-        if (paymentType === 'Baki') {
+        const dueAmount = paymentType === 'Baki' ? (total - paidAmount) : 0;
+        
+        if (dueAmount > 0) {
           const supIndex = newSuppliers.findIndex(s => s.id === supplierId);
           if (supIndex !== -1) {
-            newSuppliers[supIndex] = { ...newSuppliers[supIndex], due: newSuppliers[supIndex].due + total };
+            newSuppliers[supIndex] = { ...newSuppliers[supIndex], due: newSuppliers[supIndex].due + dueAmount };
           }
         }
 
@@ -202,7 +206,8 @@ const useStore = create(
           supplierId,
           supplierName,
           paymentType,
-          total
+          total,
+          paidAmount
         };
 
         return {

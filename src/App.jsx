@@ -35,14 +35,25 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
 function App() {
   const theme = useStore((state) => state.theme);
+  const themeGradient = useStore((state) => state.themeGradient) || 'theme-sky';
 
   useEffect(() => {
+    // Clear old theme classes
+    document.body.classList.remove(
+      'theme-sky', 'theme-emerald', 'theme-purple', 
+      'theme-rose', 'theme-amber', 'theme-indigo'
+    );
+    
+    // Add new theme class
+    document.body.classList.add(themeGradient);
+
+    // Keep legacy light-mode logic if it was used anywhere else
     if (theme === 'light') {
       document.body.classList.add('light-mode');
     } else {
       document.body.classList.remove('light-mode');
     }
-  }, [theme]);
+  }, [theme, themeGradient]);
 
   return (
     <Router>

@@ -62,7 +62,8 @@ const Layout = () => {
     menuItems.push(
       { path: '/sms', name: 'SMS System', icon: <MessageSquare size={20} /> },
       { path: '/hr', name: 'HR & Payroll', icon: <Users size={20} /> },
-      { path: '/reports', name: 'Reports', icon: <FileText size={20} /> }
+      { path: '/reports', name: 'Reports', icon: <FileText size={20} /> },
+      { path: '/settings', name: 'Settings', icon: <Settings size={20} /> }
     );
   }
 
