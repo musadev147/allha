@@ -22,6 +22,10 @@
   display: none;
 }
 
+.mobile-header-actions {
+  display: none;
+}
+
 .sidebar-header h2 {
   font-size: 1.35rem;
   font-weight: 700;
@@ -161,6 +165,16 @@
     display: flex;
   }
 
+  .mobile-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hide-on-mobile {
+    display: none;
+  }
+
   .sidebar-nav {
     display: none;
     flex-direction: column;
@@ -179,7 +193,6 @@
   }
 
   .topbar {
-    padding: 0 1.5rem;
-    height: 64px;
+    display: none;
   }
 }

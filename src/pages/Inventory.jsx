@@ -4,26 +4,43 @@ import Barcode from 'react-barcode';
 import { Plus, Search, Printer, Edit, Trash2, Download } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 import './Inventory.css';
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, deleteInventoryItem } = useStore();
+  const { inventory, addInventoryItem, deleteInventoryItem, language } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('All Time');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
   const [printQuantity, setPrintQuantity] = useState(21); // Default to 21 (3x7 grid)
 
   const [newProduct, setNewProduct] = useState({
     id: '', name: '', category: 'Grocery', unit: 'Bag', variant: '', stock: 0, price: 0
   });
 
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    updateInventoryItem(editingItem.id, { ...editingItem, price: parseFloat(editingItem.price), stock: parseInt(editingItem.stock) });
+    setEditingItem(null);
+    toast.success('Product updated successfully!');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      deleteInventoryItem(id);
+      toast.success('Product deleted!');
+    }
+  };
+
   const handleAddProduct = (e) => {
     e.preventDefault();
     if (!newProduct.id || !newProduct.name) {
-      alert('ID and Name are required!');
+      toast.error('ID and Name are required!');
       return;
     }
     
@@ -32,6 +49,7 @@ const Inventory = () => {
     
     setShowAddModal(false);
     setNewProduct({ id: '', name: '', category: 'Grocery', unit: 'Bag', variant: '', stock: 0, price: 0 });
+    toast.success('Product added successfully!');
   };
 
   const handlePrintBarcode = (product) => {
@@ -89,18 +107,18 @@ const Inventory = () => {
     <div className="inventory-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>Inventory Management</h1>
-          <p className="text-muted">Manage your stock, categories, and generate barcodes.</p>
+          <h1>{t(language, 'Inventory Management')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'আপনার স্টক, ক্যাটাগরি এবং বারকোড ম্যানেজ করুন।' : 'Manage your stock, categories, and generate barcodes.'}</p>
         </div>
         <div className="flex-align-gap">
           <button className="btn-outline flex-align-gap" onClick={handlePrintInventoryList}>
-            <Printer size={18} /> Print List
+            <Printer size={18} /> {t(language, 'Print List' || 'Print')}
           </button>
           <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-inventory-list', 'Inventory_List.pdf')}>
-            <Download size={18} /> Download PDF
+            <Download size={18} /> {t(language, 'Download PDF' || 'Download')}
           </button>
           <button className="btn-primary flex-align-gap" style={{ width: 'fit-content', whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
-            <Plus size={18} /> Add New Product
+            <Plus size={18} /> {t(language, 'Add New Item')}
           </button>
         </div>
       </div>
@@ -111,7 +129,7 @@ const Inventory = () => {
             <Search size={18} className="text-muted" />
             <input 
               type="text" 
-              placeholder="Search by name or ID..." 
+              placeholder={t(language, 'Search')} 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -156,14 +174,14 @@ const Inventory = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>ID/Barcode</th>
-                <th>Product Name</th>
-                <th>Category</th>
-                <th>Variant</th>
-                <th>Unit</th>
-                <th>Stock</th>
-                <th>Price (BDT)</th>
-                <th>Actions</th>
+                <th>{t(language, 'ID/Barcode' || 'ID')}</th>
+                <th>{t(language, 'Item Name')}</th>
+                <th>{t(language, 'Category')}</th>
+                <th>{t(language, 'Variant' || 'Variant')}</th>
+                <th>{t(language, 'Unit')}</th>
+                <th>{t(language, 'Stock')}</th>
+                <th>{t(language, 'Price')} (BDT)</th>
+                <th>{t(language, 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -203,7 +221,7 @@ const Inventory = () => {
       {/* Hidden Printable Inventory List (Excel Style) */}
       <div id="printable-inventory-list" style={{ display: 'none' }}>
         <div style={{ padding: '1.5rem', background: '#fff', color: '#000', fontFamily: 'sans-serif' }}>
-          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
           <p style={{ textAlign: 'center', fontSize: '1rem', marginBottom: '0.5rem', color: '#333' }}>Inventory Stock List</p>
           <p style={{ textAlign: 'center', fontSize: '0.9rem', marginBottom: '1.5rem', color: '#666' }}>
             Date Filter: {filterDate} {filterDate === 'Custom' ? `(${customDateRange.start} to ${customDateRange.end})` : ''}
@@ -315,7 +333,7 @@ const Inventory = () => {
         <div className="drawer-overlay">
           <div className="drawer-container">
             <div className="drawer-header">
-              <h2>Add New Product</h2>
+              <h2>{t(language, 'Add New Item')}</h2>
               <button className="drawer-close-btn" onClick={() => setShowAddModal(false)}>
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
@@ -324,26 +342,26 @@ const Inventory = () => {
               <form id="add-product-form" onSubmit={handleAddProduct}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Product ID / Barcode *</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'ID/Barcode' || 'Product ID / Barcode')} *</label>
                     <input type="text" className="w-full" value={newProduct.id} onChange={e => setNewProduct({...newProduct, id: e.target.value})} required placeholder="e.g. 10004" />
                   </div>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Product Name *</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Item Name')} *</label>
                     <input type="text" className="w-full" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} required placeholder="e.g. Sugar 1kg" />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label className="text-muted text-sm block mb-1">Category</label>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Category')}</label>
                       <input type="text" className="w-full" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} placeholder="e.g. Grocery" />
                     </div>
                     <div>
-                      <label className="text-muted text-sm block mb-1">Variant (Optional)</label>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Variant' || 'Variant')}</label>
                       <input type="text" className="w-full" value={newProduct.variant} onChange={e => setNewProduct({...newProduct, variant: e.target.value})} placeholder="e.g. Red, XL, 500gm" />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
-                      <label className="text-muted text-sm block mb-1">Unit</label>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Unit')}</label>
                       <select className="w-full" value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})}>
                         <option value="Bag">Bag</option>
                         <option value="Bottle">Bottle</option>
@@ -353,20 +371,20 @@ const Inventory = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="text-muted text-sm block mb-1">Initial Stock</label>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Stock')}</label>
                       <input type="number" className="w-full" min="0" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})} />
                     </div>
                   </div>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Price (BDT)</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Price')} (BDT)</label>
                     <input type="number" className="w-full" min="0" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})} />
                   </div>
                 </div>
               </form>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button type="submit" form="add-product-form" className="btn-primary flex-align-gap"><Plus size={18} /> Save Product</button>
+              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="add-product-form" className="btn-primary flex-align-gap"><Plus size={18} /> {t(language, 'Save')}</button>
             </div>
           </div>
         </div>,

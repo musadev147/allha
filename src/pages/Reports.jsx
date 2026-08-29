@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { BarChart, PieChart, TrendingUp, DollarSign, Users, Package, Calendar, Printer, Database, ShoppingCart, Download, Eye, Plus, X, Gift } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
 
 const Reports = () => {
   const [activeTab, setActiveTab] = useState('Sales');
@@ -11,7 +12,9 @@ const Reports = () => {
   const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [invoiceType, setInvoiceType] = useState(''); // 'Sale' or 'Purchase'
-  const { sales, inventory, purchases, expenses, customers, suppliers, staff, payrolls, returns, attendance, leaves, loadDummyData } = useStore();
+  const { sales, inventory, purchases, expenses, customers, suppliers, staff, payrolls, returns, attendance, leaves, loadDummyData, accountTransactions, settlements, language } = useStore();
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -135,15 +138,19 @@ const Reports = () => {
   const totalBonusPaid = filteredPayrolls.reduce((acc, p) => acc + p.bonus, 0);
 
   const TABS = [
-    { id: 'Sales', label: 'Sales', icon: BarChart },
-    { id: 'Purchases', label: 'Purchases', icon: ShoppingCart },
-    { id: 'Stock', label: 'Stock', icon: Package },
-    { id: 'ProfitLoss', label: 'Profit & Loss', icon: TrendingUp },
-    { id: 'Due', label: 'Due Report', icon: DollarSign },
-    { id: 'Salesman', label: 'Salesman', icon: Users },
-    { id: 'Expense', label: 'Expense', icon: PieChart },
-    { id: 'HR', label: 'HR & Payroll', icon: Calendar },
-    { id: 'Gifts', label: 'Gifts Given', icon: Gift },
+    { id: 'Sales', label: t(language, 'Sales' || 'Sales'), icon: BarChart },
+    { id: 'Purchases', label: t(language, 'Purchases' || 'Purchases'), icon: ShoppingCart },
+    { id: 'Stock', label: t(language, 'Stock' || 'Stock'), icon: Package },
+    { id: 'ProfitLoss', label: t(language, 'Profit & Loss'), icon: TrendingUp },
+    { id: 'Due', label: t(language, 'Due Report'), icon: DollarSign },
+    { id: 'Salesman', label: t(language, 'Salesman Report' || 'Salesman'), icon: Users },
+    { id: 'Expense', label: t(language, 'Expense' || 'Expense'), icon: PieChart },
+    { id: 'HR', label: t(language, 'HR & Payroll' || 'HR & Payroll'), icon: Calendar },
+    { id: 'Gifts', label: t(language, 'Gifts Report' || 'Gifts'), icon: Gift },
+    { id: 'CustLedger', label: t(language, 'Cust. Ledger' || 'Cust. Ledger'), icon: Users },
+    { id: 'SupLedger', label: t(language, 'Sup. Ledger' || 'Sup. Ledger'), icon: Users },
+    { id: 'CashStatement', label: t(language, 'Cash Stmt' || 'Cash Stmt'), icon: DollarSign },
+    { id: 'BankStatement', label: t(language, 'Bank Stmt' || 'Bank Stmt'), icon: DollarSign },
   ];
 
   // 8. Gifts Data
@@ -169,8 +176,8 @@ const Reports = () => {
     <div className="reports-page animate-fade-in" id="reports-page-container">
       <div className="page-header">
         <div>
-          <h1>Reports & Analytics</h1>
-          <p className="text-muted">Comprehensive business intelligence and reporting.</p>
+          <h1>{t(language, 'Reports & Analytics')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'সব ধরনের রিপোর্ট এবং অ্যানালিটিক্স।' : 'Comprehensive business intelligence and reporting.'}</p>
         </div>
         <div className="flex-align-gap">
           <label className="text-muted text-sm">Timeframe:</label>
@@ -214,14 +221,14 @@ const Reports = () => {
       {/* 1. Sales Report */}
       {activeTab === 'Sales' && (
         <div className="card glass">
-          <h3>Sales Report ({dateFilter})</h3>
+          <h3>{t(language, 'Sales Report' || 'Sales Report')} ({dateFilter})</h3>
           <div className="grid responsive-grid-2 mt-4 mb-4">
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Revenue</h4>
+               <h4 className="text-muted">{t(language, 'Total Sales' || 'Total Revenue')}</h4>
                <p className="text-2xl text-primary font-bold">৳{totalSalesAmount.toLocaleString()}</p>
              </div>
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Invoices Generated</h4>
+               <h4 className="text-muted">{t(language, 'Invoices Generated' || 'Invoices Generated')}</h4>
                <p className="text-2xl font-bold">{totalInvoices}</p>
              </div>
           </div>
@@ -251,14 +258,14 @@ const Reports = () => {
       {/* 1.5 Purchase Report */}
       {activeTab === 'Purchases' && (
         <div className="card glass">
-          <h3>Purchases Report ({dateFilter})</h3>
+          <h3>{t(language, 'Purchases Report' || 'Purchases Report')} ({dateFilter})</h3>
           <div className="grid responsive-grid-2 mt-4 mb-4">
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Purchase Cost</h4>
+               <h4 className="text-muted">{t(language, 'Total Purchase Cost' || 'Total Purchase Cost')}</h4>
                <p className="text-2xl text-danger font-bold">৳{totalPurchasesCost.toLocaleString()}</p>
              </div>
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Invoices Generated</h4>
+               <h4 className="text-muted">{t(language, 'Invoices Generated' || 'Invoices Generated')}</h4>
                <p className="text-2xl font-bold">{totalPurchaseInvoices}</p>
              </div>
           </div>
@@ -288,11 +295,11 @@ const Reports = () => {
       {/* 2. Stock Report */}
       {activeTab === 'Stock' && (
         <div className="card glass">
-          <h3>Stock Report (Current Balance & History)</h3>
-          <p className="text-muted text-sm mb-4">Stock In/Out is calculated from all-time Purchases, Sales, and Returns.</p>
+          <h3>{t(language, 'Stock Report' || 'Stock Report')}</h3>
+          <p className="text-muted text-sm mb-4">{language === 'bn' ? 'স্টক ইন/আউট সব ক্রয়, বিক্রয় এবং রিটার্ন থেকে হিসাব করা হয়েছে।' : 'Stock In/Out is calculated from all-time Purchases, Sales, and Returns.'}</p>
           <div className="table-responsive">
             <table className="data-table">
-              <thead><tr><th>Item Name</th><th>Category</th><th>All Time IN</th><th>All Time OUT</th><th>Current Stock</th><th style={{textAlign:'center'}}>Actions</th></tr></thead>
+              <thead><tr><th>{t(language, 'Item Name')}</th><th>{t(language, 'Category')}</th><th>{t(language, 'All Time IN' || 'All Time IN')}</th><th>{t(language, 'All Time OUT' || 'All Time OUT')}</th><th>{t(language, 'Current Stock')}</th><th style={{textAlign:'center'}}>{t(language, 'Actions')}</th></tr></thead>
               <tbody>
                 {stockData.map(item => (
                   <tr key={item.id}>
@@ -319,23 +326,23 @@ const Reports = () => {
       {/* 3. Profit & Loss Report */}
       {activeTab === 'ProfitLoss' && (
         <div className="card glass">
-          <h3>Profit & Loss Report ({dateFilter})</h3>
+          <h3>{t(language, 'Profit & Loss Report' || 'Profit & Loss Report')} ({dateFilter})</h3>
           <div className="grid responsive-grid-3 mt-4 mb-4">
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Revenue</h4>
+               <h4 className="text-muted">{t(language, 'Total Revenue' || 'Total Revenue')}</h4>
                <p className="text-2xl text-primary font-bold">৳{totalSalesAmount.toLocaleString()}</p>
              </div>
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Cost (Purchases + Expense)</h4>
+               <h4 className="text-muted">{t(language, 'Total Cost' || 'Total Cost (Purchases + Expense)')}</h4>
                <p className="text-2xl text-danger font-bold">৳{totalCost.toLocaleString()}</p>
              </div>
              <div className="card bg-input text-center" style={{ border: `1px solid ${netProfit >= 0 ? 'var(--success)' : 'var(--danger)'}` }}>
-               <h4 className="text-muted">Net Profit</h4>
+               <h4 className="text-muted">{t(language, 'Net Profit' || 'Net Profit')}</h4>
                <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-success' : 'text-danger'}`}>৳{netProfit.toLocaleString()}</p>
              </div>
           </div>
           
-          <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#000' }}>Detailed Breakdown</h4>
+          <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#000' }}>{t(language, 'Detailed Breakdown' || 'Detailed Breakdown')}</h4>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
@@ -379,7 +386,7 @@ const Reports = () => {
       {activeTab === 'Due' && (
         <div className="grid responsive-grid-2" style={{ gap: '1.5rem' }}>
           <div className="card glass">
-            <h3 className="text-success mb-2">To Receive (Customer Due)</h3>
+            <h3 className="text-success mb-2">{t(language, 'To Receive (Customer Due)' || 'To Receive (Customer Due)')}</h3>
             <p className="text-2xl font-bold mb-4">৳{totalCustomerDue.toLocaleString()}</p>
             <div className="table-responsive">
               <table className="data-table">
@@ -400,7 +407,7 @@ const Reports = () => {
             </div>
           </div>
           <div className="card glass">
-            <h3 className="text-danger mb-2">To Pay (Supplier Due)</h3>
+            <h3 className="text-danger mb-2">{t(language, 'To Pay (Supplier Due)' || 'To Pay (Supplier Due)')}</h3>
             <p className="text-2xl font-bold mb-4">৳{totalSupplierDue.toLocaleString()}</p>
             <div className="table-responsive">
               <table className="data-table">
@@ -426,7 +433,7 @@ const Reports = () => {
       {/* 5. Salesman-wise Report */}
       {activeTab === 'Salesman' && (
         <div className="card glass">
-          <h3>Salesman-wise Report ({dateFilter})</h3>
+          <h3>{t(language, 'Salesman Report' || 'Salesman-wise Report')} ({dateFilter})</h3>
           <div className="table-responsive mt-4">
             <table className="data-table">
               <thead><tr><th>Salesman Name</th><th>Invoices Handled</th><th>Total Sales Amount</th><th style={{textAlign:'center'}}>Actions</th></tr></thead>
@@ -455,8 +462,8 @@ const Reports = () => {
       {/* 6. Expense Report */}
       {activeTab === 'Expense' && (
         <div className="card glass">
-          <h3>Expense Report ({dateFilter})</h3>
-          <p className="text-2xl text-danger font-bold mb-4 mt-2">Total: ৳{totalExpenseCost.toLocaleString()}</p>
+          <h3>{t(language, 'Expense Report' || 'Expense Report')} ({dateFilter})</h3>
+          <p className="text-2xl text-danger font-bold mb-4 mt-2">{t(language, 'Total')}: ৳{totalExpenseCost.toLocaleString()}</p>
           <div className="table-responsive">
             <table className="data-table">
               <thead><tr><th>Category</th><th>Total Amount</th><th style={{textAlign:'center'}}>Actions</th></tr></thead>
@@ -484,14 +491,14 @@ const Reports = () => {
       {/* 7. HR & Payroll Report */}
       {activeTab === 'HR' && (
         <div className="card glass">
-          <h3>HR & Payroll Report ({dateFilter})</h3>
+          <h3>{t(language, 'HR & Payroll Report' || 'HR & Payroll Report')} ({dateFilter})</h3>
           <div className="grid responsive-grid-2 mt-4 mb-4">
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Salary Paid</h4>
+               <h4 className="text-muted">{t(language, 'Total Salary Paid' || 'Total Salary Paid')}</h4>
                <p className="text-2xl text-warning font-bold">৳{totalSalaryPaid.toLocaleString()}</p>
              </div>
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Bonus Paid</h4>
+               <h4 className="text-muted">{t(language, 'Total Bonus Paid' || 'Total Bonus Paid')}</h4>
                <p className="text-2xl text-success font-bold">৳{totalBonusPaid.toLocaleString()}</p>
              </div>
           </div>
@@ -525,14 +532,14 @@ const Reports = () => {
       {/* 9. Gifts Report */}
       {activeTab === 'Gifts' && (
         <div className="card glass">
-          <h3>Gifts Report ({dateFilter})</h3>
+          <h3>{t(language, 'Gifts Report' || 'Gifts Report')} ({dateFilter})</h3>
           <div className="grid responsive-grid-2 mt-4 mb-4">
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Gifts Given</h4>
-               <p className="text-2xl font-bold">{giftItems.reduce((sum, item) => sum + item.quantity, 0)} Items</p>
+               <h4 className="text-muted">{t(language, 'Total Gifts Given' || 'Total Gifts Given')}</h4>
+               <p className="text-2xl font-bold">{giftItems.reduce((sum, item) => sum + item.quantity, 0)} {language === 'bn' ? 'টি' : 'Items'}</p>
              </div>
              <div className="card bg-input text-center">
-               <h4 className="text-muted">Total Gift Value</h4>
+               <h4 className="text-muted">{t(language, 'Total Gift Value' || 'Total Gift Value')}</h4>
                <p className="text-2xl text-primary font-bold">৳{totalGiftValue.toLocaleString()}</p>
              </div>
           </div>
@@ -570,6 +577,142 @@ const Reports = () => {
         </div>
       )}
 
+      {/* 10. Customer Ledger */}
+      {activeTab === 'CustLedger' && (
+        <div className="card glass">
+          <h3>{t(language, 'Cust. Ledger' || 'Customer Account Ledger')}</h3>
+          <div className="flex-align-gap mt-4 mb-4">
+            <select className="p-2 bg-input border border-gray-700 rounded text-main w-full" value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}>
+              <option value="">Select a Customer...</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+            </select>
+          </div>
+          {selectedCustomerId && (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead><tr><th>Date</th><th>Type</th><th>Ref ID</th><th style={{textAlign:'right'}}>Debit (Due+)</th><th style={{textAlign:'right'}}>Credit (Paid-)</th><th style={{textAlign:'right'}}>Balance</th></tr></thead>
+                <tbody>
+                  {(() => {
+                    let runBal = 0;
+                    const custSales = sales.filter(s => s.customerId === selectedCustomerId && s.paymentType === 'Baki').map(s => ({ date: s.date, type: 'Sale (Due)', ref: s.id, debit: s.total, credit: 0 }));
+                    const custPayments = (settlements || []).filter(s => s.type === 'Customer' && s.targetId === selectedCustomerId).map(s => ({ date: s.date, type: 'Payment', ref: s.id, debit: 0, credit: s.amount }));
+                    const ledger = [...custSales, ...custPayments].sort((a,b) => new Date(a.date) - new Date(b.date));
+                    
+                    return ledger.length > 0 ? ledger.map((l, i) => {
+                      runBal = runBal + l.debit - l.credit;
+                      return (
+                        <tr key={i}>
+                          <td>{new Date(l.date).toLocaleDateString()}</td>
+                          <td>{l.type}</td>
+                          <td>{l.ref}</td>
+                          <td style={{textAlign:'right', color:'var(--danger)'}}>{l.debit > 0 ? `৳${l.debit}` : '-'}</td>
+                          <td style={{textAlign:'right', color:'var(--success)'}}>{l.credit > 0 ? `৳${l.credit}` : '-'}</td>
+                          <td style={{textAlign:'right', fontWeight:'bold'}}>৳{runBal}</td>
+                        </tr>
+                      );
+                    }) : <tr><td colSpan="6" className="text-center text-muted">No transactions found.</td></tr>;
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 11. Supplier Ledger */}
+      {activeTab === 'SupLedger' && (
+        <div className="card glass">
+          <h3>{t(language, 'Sup. Ledger' || 'Supplier Account Ledger')}</h3>
+          <div className="flex-align-gap mt-4 mb-4">
+            <select className="p-2 bg-input border border-gray-700 rounded text-main w-full" value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)}>
+              <option value="">Select a Supplier...</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
+            </select>
+          </div>
+          {selectedSupplierId && (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead><tr><th>Date</th><th>Type</th><th>Ref ID</th><th style={{textAlign:'right'}}>Debit (Due+)</th><th style={{textAlign:'right'}}>Credit (Paid-)</th><th style={{textAlign:'right'}}>Balance</th></tr></thead>
+                <tbody>
+                  {(() => {
+                    let runBal = 0;
+                    const supPurchases = purchases.filter(p => p.supplierId === selectedSupplierId && (p.paymentType === 'Baki' || p.paidAmount < p.total)).map(p => ({ date: p.date, type: 'Purchase (Due)', ref: p.id, debit: (p.total - p.paidAmount), credit: 0 }));
+                    const supPayments = (settlements || []).filter(s => s.type === 'Supplier' && s.targetId === selectedSupplierId).map(s => ({ date: s.date, type: 'Payment', ref: s.id, debit: 0, credit: s.amount }));
+                    const ledger = [...supPurchases, ...supPayments].sort((a,b) => new Date(a.date) - new Date(b.date));
+                    
+                    return ledger.length > 0 ? ledger.map((l, i) => {
+                      runBal = runBal + l.debit - l.credit;
+                      return (
+                        <tr key={i}>
+                          <td>{new Date(l.date).toLocaleDateString()}</td>
+                          <td>{l.type}</td>
+                          <td>{l.ref}</td>
+                          <td style={{textAlign:'right', color:'var(--danger)'}}>{l.debit > 0 ? `৳${l.debit}` : '-'}</td>
+                          <td style={{textAlign:'right', color:'var(--success)'}}>{l.credit > 0 ? `৳${l.credit}` : '-'}</td>
+                          <td style={{textAlign:'right', fontWeight:'bold'}}>৳{runBal}</td>
+                        </tr>
+                      );
+                    }) : <tr><td colSpan="6" className="text-center text-muted">No transactions found.</td></tr>;
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 12. Cash Statement */}
+      {activeTab === 'CashStatement' && (
+        <div className="card glass">
+          <h3>{t(language, 'Cash Stmt' || 'Cash Statement')} ({dateFilter})</h3>
+          <div className="table-responsive mt-4">
+            <table className="data-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Ref ID</th><th>Description</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+              <tbody>
+                {(() => {
+                  const cashTx = (accountTransactions || []).filter(t => t.accountId === 'Cash' && isWithinFilter(t.date));
+                  return cashTx.length > 0 ? cashTx.map(t => (
+                    <tr key={t.id}>
+                      <td>{new Date(t.date).toLocaleString()}</td>
+                      <td><span className={`badge ${t.type==='In'?'bg-success text-white px-2 py-1 rounded':'bg-danger text-white px-2 py-1 rounded'}`}>{t.type}</span></td>
+                      <td>{t.referenceId}</td>
+                      <td>{t.description}</td>
+                      <td style={{textAlign:'right', fontWeight:'bold', color: t.type==='In'?'var(--success)':'var(--danger)'}}>{t.type==='In'?'+':'-'}৳{t.amount}</td>
+                    </tr>
+                  )) : <tr><td colSpan="5" className="text-center text-muted">No Cash transactions.</td></tr>;
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 13. Bank Statement */}
+      {activeTab === 'BankStatement' && (
+        <div className="card glass">
+          <h3>{t(language, 'Bank Stmt' || 'Bank Statement')} ({dateFilter})</h3>
+          <div className="table-responsive mt-4">
+            <table className="data-table">
+              <thead><tr><th>Date</th><th>Type</th><th>Ref ID</th><th>Description</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+              <tbody>
+                {(() => {
+                  const bankTx = (accountTransactions || []).filter(t => t.accountId === 'Bank' && isWithinFilter(t.date));
+                  return bankTx.length > 0 ? bankTx.map(t => (
+                    <tr key={t.id}>
+                      <td>{new Date(t.date).toLocaleString()}</td>
+                      <td><span className={`badge ${t.type==='In'?'bg-success text-white px-2 py-1 rounded':'bg-danger text-white px-2 py-1 rounded'}`}>{t.type}</span></td>
+                      <td>{t.referenceId}</td>
+                      <td>{t.description}</td>
+                      <td style={{textAlign:'right', fontWeight:'bold', color: t.type==='In'?'var(--success)':'var(--danger)'}}>{t.type==='In'?'+':'-'}৳{t.amount}</td>
+                    </tr>
+                  )) : <tr><td colSpan="5" className="text-center text-muted">No Bank transactions.</td></tr>;
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Invoice Drawer for Print */}
       {selectedInvoice && createPortal(
         <div className="drawer-overlay">
@@ -583,7 +726,7 @@ const Reports = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-invoice" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    {invoiceType} Document<br/>
                    {selectedInvoice.date && `Date: ${new Date(selectedInvoice.date).toLocaleString()}`}

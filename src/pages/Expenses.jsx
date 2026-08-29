@@ -4,11 +4,12 @@ import { Plus, X, PieChart, DollarSign, Printer, Eye, Download } from 'lucide-re
 
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
 
 const EXPENSE_CATEGORIES = ['Shop Rent', 'Electricity Bill', 'Transport', 'Staff Cost', 'Others'];
 
 const Expenses = () => {
-  const { expenses, addExpense } = useStore();
+  const { expenses, addExpense, language } = useStore();
   const [showModal, setShowModal] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
   const [newExpense, setNewExpense] = useState({ date: todayStr, category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
@@ -49,18 +50,18 @@ const Expenses = () => {
     <div className="expenses-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>Expense Management</h1>
-          <p className="text-muted">Track daily and monthly shop expenses.</p>
+          <h1>{t(language, 'Expenses')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'দোকানের দৈনন্দিন খরচ হিসাব রাখুন।' : 'Track daily and monthly shop expenses.'}</p>
         </div>
         <button className="btn-primary flex-align-gap" onClick={() => setShowModal(true)}>
-          <Plus size={18} /> Add Expense
+          <Plus size={18} /> {t(language, 'Add Expense' || 'Add Expense')}
         </button>
       </div>
 
       <div className="grid responsive-grid-3" style={{ marginBottom: '1.5rem' }}>
         <div className="card flex-align-gap" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
           <div className="flex-align-gap w-full" style={{ justifyContent: 'space-between', width: '100%' }}>
-             <h3 className="text-muted text-sm">Today's Expense</h3>
+             <h3 className="text-muted text-sm">{t(language, 'Today\'s Expense' || 'Today\'s Expense')}</h3>
              <DollarSign className="text-danger" size={20} />
           </div>
           <p className="text-xl font-bold mt-2 text-danger" style={{ fontSize: '1.5rem', marginTop: '0.5rem' }}>৳{totalDailyExpense.toLocaleString()}</p>
@@ -70,10 +71,10 @@ const Expenses = () => {
       <div className="grid">
         <div className="card">
           <div className="card-toolbar" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <h3>Recent Expenses</h3>
+            <h3>{t(language, 'Recent Expenses' || 'Recent Expenses')}</h3>
             <div className="flex-align-gap">
               <button className="btn-outline flex-align-gap" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} onClick={() => setShowReport(true)}>
-                <PieChart size={16} /> Monthly Report
+                <PieChart size={16} /> {t(language, 'Monthly Report' || 'Monthly Report')}
               </button>
               <button className="btn-primary flex-align-gap" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }} onClick={() => {
                 const printContents = document.getElementById('printable-expenses-list').innerHTML;
@@ -94,11 +95,11 @@ const Expenses = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Amount (BDT)</th>
-                  <th style={{textAlign:'center'}}>Actions</th>
+                  <th>{t(language, 'Date')}</th>
+                  <th>{t(language, 'Category')}</th>
+                  <th>{t(language, 'Description')}</th>
+                  <th>{t(language, 'Amount' || 'Amount')} (BDT)</th>
+                  <th style={{textAlign:'center'}}>{t(language, 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -129,7 +130,7 @@ const Expenses = () => {
       {/* Hidden Printable Expenses List (Excel Style) */}
       <div id="printable-expenses-list" style={{ display: 'none' }}>
         <div style={{ padding: '1.5rem', background: '#fff', color: '#000', fontFamily: 'sans-serif' }}>
-          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
           <p style={{ textAlign: 'center', fontSize: '1rem', marginBottom: '1.5rem', color: '#333' }}>
             Expense List
           </p>
@@ -174,7 +175,7 @@ const Expenses = () => {
         <div className="drawer-overlay">
           <div className="drawer-container">
             <div className="drawer-header">
-              <h2>Add New Expense</h2>
+              <h2>{t(language, 'Add Expense' || 'Add New Expense')}</h2>
               <button className="drawer-close-btn" onClick={() => setShowModal(false)}>
                 <X size={24} />
               </button>
@@ -225,8 +226,8 @@ const Expenses = () => {
               </form>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" form="add-expense-form" className="btn-primary">Save Expense</button>
+              <button type="button" className="btn-outline" onClick={() => setShowModal(false)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="add-expense-form" className="btn-primary">{t(language, 'Save')}</button>
             </div>
           </div>
         </div>,
@@ -318,7 +319,7 @@ const Expenses = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-expense" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Expense Voucher<br/>
                    ID: {selectedExpense.id}<br/>

@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { Users, Calendar, DollarSign, Award, Plus, Check, X, Eye, Printer, Download } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 
 const HR = () => {
   const [activeTab, setActiveTab] = useState('Staff');
-  const { staff, attendance, leaves, payrolls, addStaff, markAttendance, addLeaveRequest, updateLeaveStatus, generatePayslip } = useStore();
+  const { staff, attendance, leaves, payrolls, addStaff, markAttendance, addLeaveRequest, updateLeaveStatus, generatePayslip, language } = useStore();
 
   // Modals state
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
@@ -39,7 +41,7 @@ const HR = () => {
 
   const handleApplyLeave = (e) => {
     e.preventDefault();
-    if (!newLeave.staffId) return alert('Please select a staff');
+    if (!newLeave.staffId) return toast.error('Please select a staff');
     addLeaveRequest({
       ...newLeave
     });
@@ -53,7 +55,7 @@ const HR = () => {
 
     // Check if already paid
     const alreadyPaid = payrolls.some(p => p.staffId === staffMember.id && p.month === payrollMonth);
-    if (alreadyPaid) return alert('Payslip already generated for this month!');
+    if (alreadyPaid) return toast.error('Payslip already generated for this month!');
 
     generatePayslip({
       month: payrollMonth,
@@ -72,17 +74,17 @@ const HR = () => {
     <div className="hr-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>HR & Payroll Management</h1>
-          <p className="text-muted">Manage staff, attendance, leave, salary, and bonuses.</p>
+          <h1>{t(language, 'HR & Payroll')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'স্টাফ, হাজিরা, ছুটি এবং বেতন ম্যানেজ করুন।' : 'Manage staff, attendance, leave, salary, and bonuses.'}</p>
         </div>
         {activeTab === 'Staff' && (
           <button className="btn-primary flex-align-gap" onClick={() => setShowAddStaffModal(true)}>
-            <Plus size={18} /> Add Staff
+            <Plus size={18} /> {t(language, 'Add Staff' || 'Add Staff')}
           </button>
         )}
         {activeTab === 'Leave' && (
           <button className="btn-primary flex-align-gap" onClick={() => setShowLeaveModal(true)}>
-            <Plus size={18} /> Apply Leave
+            <Plus size={18} /> {t(language, 'Apply Leave' || 'Apply Leave')}
           </button>
         )}
       </div>
@@ -91,16 +93,16 @@ const HR = () => {
         <div className="card-toolbar" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', overflowX: 'auto' }}>
           <div className="return-type-selector">
             <button className={`type-btn ${activeTab === 'Staff' ? 'active' : ''}`} onClick={() => setActiveTab('Staff')}>
-              <Users size={18} className="inline-block mr-2" /> Staff List
+              <Users size={18} className="inline-block mr-2" /> {t(language, 'Staff List' || 'Staff List')}
             </button>
             <button className={`type-btn ${activeTab === 'Attendance' ? 'active' : ''}`} onClick={() => setActiveTab('Attendance')}>
-              <Calendar size={18} className="inline-block mr-2" /> Attendance
+              <Calendar size={18} className="inline-block mr-2" /> {t(language, 'Attendance' || 'Attendance')}
             </button>
             <button className={`type-btn ${activeTab === 'Leave' ? 'active' : ''}`} onClick={() => setActiveTab('Leave')}>
-              <Users size={18} className="inline-block mr-2" /> Leave Requests
+              <Users size={18} className="inline-block mr-2" /> {t(language, 'Leave Requests' || 'Leave Requests')}
             </button>
             <button className={`type-btn ${activeTab === 'Payroll' ? 'active' : ''}`} onClick={() => setActiveTab('Payroll')}>
-              <DollarSign size={18} className="inline-block mr-2" /> Payroll & Bonus
+              <DollarSign size={18} className="inline-block mr-2" /> {t(language, 'Payroll & Bonus' || 'Payroll & Bonus')}
             </button>
           </div>
         </div>
@@ -108,20 +110,20 @@ const HR = () => {
         <div className="tab-content mt-4">
           {activeTab === 'Staff' && (
             <div>
-              <h3>All Staff</h3>
+              <h3>{t(language, 'Staff List' || 'All Staff')}</h3>
               {staff.length === 0 ? <p className="text-muted mt-4">No staff added yet.</p> : (
                 <div className="table-responsive">
                   <table className="data-table mt-4">
                     <thead>
                       <tr>
                         <th>ID</th>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Phone</th>
-                        <th>Bank Account</th>
-                        <th>Base Salary (BDT)</th>
-                        <th>Join Date</th>
-                        <th>Actions</th>
+                        <th>{t(language, 'Name')}</th>
+                        <th>{t(language, 'Role' || 'Role')}</th>
+                        <th>{t(language, 'Phone')}</th>
+                        <th>{t(language, 'Bank Account' || 'Bank Account')}</th>
+                        <th>{t(language, 'Base Salary' || 'Base Salary')} (BDT)</th>
+                        <th>{t(language, 'Join Date' || 'Join Date')}</th>
+                        <th>{t(language, 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -136,7 +138,7 @@ const HR = () => {
                           <td>{s.joinDate}</td>
                           <td>
                             <button className="btn-icon" title="View & Print" onClick={() => setSelectedStaff(s)}>
-                              <Eye size={16} />
+                              <Printer size={16} />
                             </button>
                           </td>
                         </tr>
@@ -151,7 +153,7 @@ const HR = () => {
           {activeTab === 'Attendance' && (
             <div>
               <div className="flex-align-gap mb-4" style={{ justifyContent: 'space-between' }}>
-                <h3>Daily Attendance</h3>
+                <h3>{t(language, 'Daily Attendance' || 'Daily Attendance')}</h3>
                 <input
                   type="date"
                   className="p-2 bg-input border border-gray-700 rounded text-main"
@@ -164,10 +166,10 @@ const HR = () => {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Staff ID</th>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Status</th>
+                        <th>ID</th>
+                        <th>{t(language, 'Name')}</th>
+                        <th>{t(language, 'Role' || 'Role')}</th>
+                        <th>{t(language, 'Status' || 'Status')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -204,18 +206,18 @@ const HR = () => {
 
           {activeTab === 'Leave' && (
             <div>
-              <h3>Leave Requests</h3>
+              <h3>{t(language, 'Leave Requests' || 'Leave Requests')}</h3>
               {leaves.length === 0 ? <div className="text-center text-muted py-8">No leave requests.</div> : (
                 <div className="table-responsive">
                   <table className="data-table mt-4">
                     <thead>
                       <tr>
-                        <th>Date</th>
-                        <th>Staff Name</th>
-                        <th>Type</th>
-                        <th>Reason</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>{t(language, 'Date')}</th>
+                        <th>{t(language, 'Name' || 'Staff Name')}</th>
+                        <th>{t(language, 'Leave Type' || 'Type')}</th>
+                        <th>{t(language, 'Reason' || 'Reason')}</th>
+                        <th>{t(language, 'Status' || 'Status')}</th>
+                        <th>{t(language, 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -253,7 +255,7 @@ const HR = () => {
           {activeTab === 'Payroll' && (
             <div>
               <div className="flex-align-gap mb-4" style={{ justifyContent: 'space-between' }}>
-                <h3>Monthly Payroll Summary</h3>
+                <h3>{t(language, 'Payroll & Bonus' || 'Monthly Payroll Summary')}</h3>
                 <input
                   type="month"
                   className="p-2 bg-input border border-gray-700 rounded text-main"
@@ -266,13 +268,13 @@ const HR = () => {
                   <table className="data-table mt-4">
                     <thead>
                       <tr>
-                        <th>Staff Name</th>
-                        <th>Days Present</th>
-                        <th>Base Salary</th>
-                        <th>Bonus</th>
-                        <th>Net Pay</th>
-                        <th>Status</th>
-                        <th>Action</th>
+                        <th>{t(language, 'Name' || 'Staff Name')}</th>
+                        <th>{t(language, 'Days Present' || 'Days Present')}</th>
+                        <th>{t(language, 'Base Salary' || 'Base Salary')}</th>
+                        <th>{t(language, 'Bonus' || 'Bonus')}</th>
+                        <th>{t(language, 'Net Pay' || 'Net Pay')}</th>
+                        <th>{t(language, 'Status' || 'Status')}</th>
+                        <th>{t(language, 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -312,7 +314,7 @@ const HR = () => {
                             </td>
                             <td>
                               {!isPaid && (
-                                <button className="btn-primary" onClick={() => handleGeneratePayslip(s, presentDays, bonus)}>Pay</button>
+                                <button className="btn-primary" onClick={() => handleGeneratePayslip(s, presentDays, bonus)}>{t(language, 'Pay' || 'Pay')}</button>
                               )}
                             </td>
                           </tr>
@@ -332,7 +334,7 @@ const HR = () => {
         <div className="drawer-overlay">
           <div className="drawer-container">
             <div className="drawer-header">
-              <h2>Add New Staff</h2>
+              <h2>{t(language, 'Add Staff' || 'Add New Staff')}</h2>
               <button type="button" className="drawer-close-btn" onClick={() => setShowAddStaffModal(false)}>
                 <X size={24} />
               </button>
@@ -380,8 +382,8 @@ const HR = () => {
               </form>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddStaffModal(false)}>Cancel</button>
-              <button type="submit" form="add-staff-form" className="btn-primary">Add Staff</button>
+              <button type="button" className="btn-outline" onClick={() => setShowAddStaffModal(false)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="add-staff-form" className="btn-primary">{t(language, 'Save' || 'Add Staff')}</button>
             </div>
           </div>
         </div>,
@@ -393,7 +395,7 @@ const HR = () => {
         <div className="drawer-overlay">
           <div className="drawer-container">
             <div className="drawer-header">
-              <h2>Apply Leave</h2>
+              <h2>{t(language, 'Apply Leave' || 'Apply Leave')}</h2>
               <button type="button" className="drawer-close-btn" onClick={() => setShowLeaveModal(false)}>
                 <X size={24} />
               </button>
@@ -426,8 +428,8 @@ const HR = () => {
               </form>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowLeaveModal(false)}>Cancel</button>
-              <button type="submit" form="apply-leave-form" className="btn-primary">Submit Request</button>
+              <button type="button" className="btn-outline" onClick={() => setShowLeaveModal(false)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="apply-leave-form" className="btn-primary">{t(language, 'Save' || 'Submit Request')}</button>
             </div>
           </div>
         </div>,
@@ -450,7 +452,7 @@ const HR = () => {
               <div id="printable-single-staff" style={{ padding: '1.5rem', color: '#1e293b' }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', borderBottom: '3px solid #e2e8f0', paddingBottom: '1.5rem', marginBottom: '2.5rem' }}>
-                  <h2 style={{ fontSize: '2.4rem', fontWeight: 'bold', margin: '0 0 0.5rem', color: '#0f172a' }}>Allah Dan</h2>
+                  <h2 style={{ fontSize: '2.4rem', fontWeight: 'bold', margin: '0 0 0.5rem', color: '#0f172a' }}>Allah Dan Gents Point</h2>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Staff Details Document</p>
                 </div>
 

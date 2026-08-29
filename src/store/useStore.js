@@ -6,12 +6,52 @@ const useStore = create(
     (set, get) => ({
       // App State
       user: null, // { id, name, role: 'Admin' | 'Salesman' }
-      themeGradient: 'theme-sky',
+      theme: 'light',
+      themeGradient: 'theme-sky', // Added for multiple theme colors
+      language: 'en', // 'en' or 'bn'
+      smsSettings: {
+        autoSalesConfirm: true,
+        autoPaymentReceive: true,
+        autoDueReminder: false
+      },
+      smsBalance: 1500,
       setThemeGradient: (gradient) => set({ themeGradient: gradient }),
-      theme: 'dark', // Keeping for legacy/other components if used
+      setLanguage: (lang) => set({ language: lang }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
       login: (userData) => set({ user: userData }),
       logout: () => set({ user: null }),
+
+      // Accounts State
+      cashBalance: 50000,
+      bankBalance: 150000,
+      accountTransactions: [],
+      transferFunds: (from, to, amount) => set((state) => {
+        const newCash = from === 'Cash' ? state.cashBalance - amount : (to === 'Cash' ? state.cashBalance + amount : state.cashBalance);
+        const newBank = from === 'Bank' ? state.bankBalance - amount : (to === 'Bank' ? state.bankBalance + amount : state.bankBalance);
+        
+        const txOut = {
+          id: 'TXN' + Date.now(),
+          date: new Date().toISOString(),
+          accountId: from,
+          type: 'Out',
+          amount,
+          description: `Internal Transfer to ${to}`
+        };
+        const txIn = {
+          id: 'TXN' + (Date.now() + 1),
+          date: new Date().toISOString(),
+          accountId: to,
+          type: 'In',
+          amount,
+          description: `Internal Transfer from ${from}`
+        };
+
+        return {
+          cashBalance: newCash,
+          bankBalance: newBank,
+          accountTransactions: [txIn, txOut, ...(state.accountTransactions || [])]
+        };
+      }),
 
       // Core Data Tables (Initialized with Mock Data for demonstration)
       inventory: [
@@ -83,7 +123,10 @@ const useStore = create(
       settleCustomerDue: (customerId, amount, dateStr) => set((state) => {
         const date = dateStr || new Date().toISOString();
         const settlementRecord = { id: 'STL' + Date.now(), targetId: customerId, type: 'Customer', amount, date };
+        const tx = { id: 'TXN' + Date.now(), date, accountId: 'Cash', type: 'In', amount, description: `Due Collection from Customer ${customerId}` };
         return {
+          cashBalance: state.cashBalance + amount,
+          accountTransactions: [tx, ...(state.accountTransactions || [])],
           customers: state.customers.map(c => 
             c.id === customerId ? { ...c, due: Math.max(0, c.due - amount) } : c
           ),
@@ -93,7 +136,10 @@ const useStore = create(
       settleSupplierDue: (supplierId, amount, dateStr) => set((state) => {
         const date = dateStr || new Date().toISOString();
         const settlementRecord = { id: 'STL' + Date.now(), targetId: supplierId, type: 'Supplier', amount, date };
+        const tx = { id: 'TXN' + Date.now(), date, accountId: 'Cash', type: 'Out', amount, description: `Due Payment to Supplier ${supplierId}` };
         return {
+          cashBalance: state.cashBalance - amount,
+          accountTransactions: [tx, ...(state.accountTransactions || [])],
           suppliers: state.suppliers.map(s => 
             s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s
           ),
@@ -161,7 +207,22 @@ const useStore = create(
           isGift: isGiftInvoice && total === 0
         };
 
+        const newCash = paymentType === 'Cash' && total > 0 ? state.cashBalance + total : state.cashBalance;
+        const newTransactions = [...(state.accountTransactions || [])];
+        if (paymentType === 'Cash' && total > 0) {
+           newTransactions.unshift({
+             id: 'TXN' + Date.now(),
+             date: saleRecord.date,
+             accountId: 'Cash',
+             type: 'In',
+             amount: total,
+             description: `Sales Revenue (${saleRecord.id})`
+           });
+        }
+
         return {
+          cashBalance: newCash,
+          accountTransactions: newTransactions,
           inventory: newInventory,
           customers: newCustomers,
           sales: [saleRecord, ...state.sales],
@@ -210,7 +271,22 @@ const useStore = create(
           paidAmount
         };
 
+        const newCash = paidAmount > 0 ? state.cashBalance - paidAmount : state.cashBalance;
+        const newTransactions = [...(state.accountTransactions || [])];
+        if (paidAmount > 0) {
+           newTransactions.unshift({
+             id: 'TXN' + Date.now(),
+             date: purchaseRecord.date,
+             accountId: 'Cash',
+             type: 'Out',
+             amount: paidAmount,
+             description: `Purchase Payment (${purchaseRecord.id})`
+           });
+        }
+
         return {
+          cashBalance: newCash,
+          accountTransactions: newTransactions,
           inventory: newInventory,
           suppliers: newSuppliers,
           purchases: [purchaseRecord, ...state.purchases]
@@ -254,6 +330,10 @@ const useStore = create(
         suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s)
       })),
 
+      addCustomer: (customerData) => set((state) => ({
+        customers: [...state.customers, { id: 'C' + Date.now(), due: 0, ...customerData }]
+      })),
+
       addSupplier: (supplierData) => set((state) => ({
         suppliers: [...state.suppliers, { id: 'SUP' + Date.now(), due: 0, ...supplierData }]
       })),
@@ -262,9 +342,15 @@ const useStore = create(
         suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, ...updates } : s)
       })),
 
-      addExpense: (expense) => set((state) => ({
-        expenses: [{ id: Date.now(), ...expense }, ...state.expenses]
-      })),
+      addExpense: (expense) => set((state) => {
+        const expenseEntry = { id: Date.now(), ...expense };
+        const tx = { id: 'TXN' + Date.now(), date: expenseEntry.date, accountId: 'Cash', type: 'Out', amount: expense.amount, description: `Expense: ${expense.category}` };
+        return {
+          cashBalance: state.cashBalance - expense.amount,
+          accountTransactions: [tx, ...(state.accountTransactions || [])],
+          expenses: [expenseEntry, ...state.expenses]
+        };
+      }),
 
       // HR ACTIONS
       addStaff: (staffData) => set((state) => ({
@@ -301,8 +387,11 @@ const useStore = create(
           amount: payrollData.netPay,
           description: `Salary for ${payrollData.staffName} (${payrollData.month} ${payrollData.year})`
         };
+        const tx = { id: 'TXN' + Date.now(), date: expenseEntry.date, accountId: 'Cash', type: 'Out', amount: payrollData.netPay, description: `Payroll: ${payrollData.staffName}` };
 
         return {
+          cashBalance: state.cashBalance - payrollData.netPay,
+          accountTransactions: [tx, ...(state.accountTransactions || [])],
           payrolls: [{ id: 'PR' + Date.now(), ...payrollData, paymentDate: new Date().toISOString() }, ...state.payrolls],
           expenses: [expenseEntry, ...state.expenses]
         };

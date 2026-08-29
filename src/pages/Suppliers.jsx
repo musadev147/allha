@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Printer, Eye, Download, Plus, Phone } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { toast } from 'react-toastify';
 
 const Suppliers = () => {
   const { suppliers, addSupplier, purchases, settlements } = useStore();
@@ -61,6 +62,7 @@ const Suppliers = () => {
     addSupplier(supplierToSave);
     setNewSupplier({ name: '', company: '', phone: '', email: '', location: '', due: '', notes: '' });
     setShowAddModal(false);
+    toast.success('Supplier added successfully!');
   };
 
   return (
@@ -128,7 +130,7 @@ const Suppliers = () => {
                       <td>
                         <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
                           <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
-                            <Eye size={16} />
+                            <Printer size={16} />
                           </button>
                         </div>
                       </td>
@@ -248,7 +250,7 @@ const Suppliers = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-person" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Supplier Statement<br/>
                    Date: {new Date().toLocaleDateString()}

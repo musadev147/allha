@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { RefreshCcw, Search, PackageMinus, PackagePlus, List, Plus, Printer, Eye, Download } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 import './Returns.css';
 
 const Returns = () => {
-  const { inventory, processReturn, returns } = useStore();
+  const { inventory, processReturn, returns, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   
   // New Return State
@@ -25,7 +27,7 @@ const Returns = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!product) {
-      alert('Please select a product');
+      toast.error('Please select a product');
       return;
     }
     
@@ -62,8 +64,8 @@ const Returns = () => {
     <div className="returns-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>Returns & Rejects</h1>
-          <p className="text-muted">Handle customer returns or supplier rejects to adjust inventory.</p>
+          <h1>{t(language, 'Returns & Refunds')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'কাস্টমার বা সাপ্লায়ার রিটার্ন ম্যানেজ করুন।' : 'Handle customer returns or supplier rejects to adjust inventory.'}</p>
         </div>
       </div>
 
@@ -87,7 +89,7 @@ const Returns = () => {
               onClick={() => setReturnType('Customer')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-              <PackagePlus size={16} /> Customer Return (Add to Stock)
+              <PackagePlus size={16} /> {t(language, 'Customer Return (In)')}
             </button>
             <button 
               type="button"
@@ -95,7 +97,7 @@ const Returns = () => {
               onClick={() => setReturnType('Supplier')}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-              <PackageMinus size={16} /> Supplier Reject (Remove Stock)
+              <PackageMinus size={16} /> {t(language, 'Supplier Return (Out)')}
             </button>
           </div>
 
@@ -112,7 +114,7 @@ const Returns = () => {
             </div>
 
             <div className="form-group mb-4">
-              <label>{returnType === 'Customer' ? 'Sale Invoice ID (Optional)' : 'Purchase ID (Optional)'}</label>
+              <label>{returnType === 'Customer' ? t(language, 'Sale Invoice ID (Optional)' || 'Invoice ID') : t(language, 'Purchase ID (Optional)' || 'Invoice ID')}</label>
               <input 
                 type="text" 
                 placeholder="e.g. INV-12345"
@@ -123,7 +125,7 @@ const Returns = () => {
             </div>
 
             <div className="form-group mb-4">
-              <label>Product</label>
+              <label>{t(language, 'Item Name' || 'Product')}</label>
               <select value={product} onChange={(e) => setProduct(e.target.value)} required>
                 <option value="">Select a product...</option>
                 {inventory.map(item => (
@@ -133,7 +135,7 @@ const Returns = () => {
             </div>
 
             <div className="form-group mb-4">
-              <label>Quantity</label>
+              <label>{t(language, 'Qty')}</label>
               <input 
                 type="number" 
                 min="1" 
@@ -144,7 +146,7 @@ const Returns = () => {
             </div>
 
             <div className="form-group mb-4">
-              <label>Reason</label>
+              <label>{t(language, 'Return Reason')}</label>
               <textarea 
                 rows="3" 
                 placeholder="Explain reason for return/reject..."
@@ -156,7 +158,7 @@ const Returns = () => {
 
             <button type="submit" className="btn-primary w-full flex-align-gap center-content">
               <RefreshCcw size={18} />
-              Process {returnType}
+              {t(language, 'Process Return')} ({returnType})
             </button>
           </form>
         </div>
@@ -191,13 +193,13 @@ const Returns = () => {
                <thead>
                  <tr>
                    <th>ID</th>
-                   <th>Date</th>
-                   <th>Ref ID</th>
-                   <th>Type</th>
-                   <th>Product</th>
-                   <th>Qty</th>
-                   <th>Reason</th>
-                   <th style={{textAlign: 'center'}}>Actions</th>
+                   <th>{t(language, 'Date')}</th>
+                   <th>{t(language, 'Invoice ID' || 'Ref ID')}</th>
+                   <th>{t(language, 'Type')}</th>
+                   <th>{t(language, 'Item Name')}</th>
+                   <th>{t(language, 'Qty')}</th>
+                   <th>{t(language, 'Return Reason' || 'Reason')}</th>
+                   <th style={{textAlign: 'center'}}>{t(language, 'Actions')}</th>
                  </tr>
                </thead>
                <tbody>
@@ -230,7 +232,7 @@ const Returns = () => {
           
           <div style={{ display: 'none' }}>
             <div id="printable-all-returns-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
               <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Returns & Rejects History</h3>
               {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
               
@@ -280,7 +282,7 @@ const Returns = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-return" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    {selectedInvoice.returnType} {selectedInvoice.returnType === 'Customer' ? 'Return' : 'Reject'} Receipt<br/>
                    ID: {selectedInvoice.id}<br/>

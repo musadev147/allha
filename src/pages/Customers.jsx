@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, MessageSquare, Phone, Printer, Eye, Download } from 'lucide-react';
+import { Search, MessageSquare, Phone, Printer, Eye, Download, Plus } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 
 const Customers = () => {
-  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements } = useStore();
+  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements, language, addCustomer } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('Customer'); // Customer or Supplier
   const [smsModal, setSmsModal] = useState({ show: false, target: null, message: '' });
   const [settleModal, setSettleModal] = useState({ show: false, target: null, amount: '', date: '' });
   const [selectedPerson, setSelectedPerson] = useState(null);
+
+  // Add Customer Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', location: '', due: '', notes: '' });
 
   // Compute Ledger for selected person
   let personLedger = [];
@@ -87,12 +93,30 @@ const Customers = () => {
     setSettleModal({ show: false, target: null, amount: '', date: '' });
   };
 
+  const handleAddCustomer = (e) => {
+    e.preventDefault();
+    if (!newCustomer.name) {
+      alert("Name is required");
+      return;
+    }
+    const customerToSave = { ...newCustomer };
+    if (customerToSave.due) {
+      customerToSave.due = parseFloat(customerToSave.due) || 0;
+    } else {
+      customerToSave.due = 0;
+    }
+    addCustomer(customerToSave);
+    setNewCustomer({ name: '', phone: '', location: '', due: '', notes: '' });
+    setShowAddModal(false);
+    toast.success('Customer added successfully!');
+  };
+
   return (
     <div className="customers-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>Customers & Due Management</h1>
-          <p className="text-muted">Manage Baki (Due) for both customers and suppliers. Send SMS reminders.</p>
+          <h1>{t(language, 'Customers & Dues')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'কাস্টমার এবং সাপ্লায়ারদের বকেয়া ম্যানেজ করুন।' : 'Manage Baki (Due) for both customers and suppliers. Send SMS reminders.'}</p>
         </div>
       </div>
 
@@ -103,37 +127,45 @@ const Customers = () => {
               className={activeTab === 'Customer' ? 'active' : ''}
               onClick={() => setActiveTab('Customer')}
             >
-              Customers Due
+              {t(language, 'Customers Due')}
             </button>
             <button 
               className={activeTab === 'Supplier' ? 'active' : ''}
               onClick={() => setActiveTab('Supplier')}
             >
-              Suppliers Due
+              {t(language, 'Suppliers Due')}
             </button>
           </div>
           <div className="search-bar">
             <Search size={18} className="text-muted" />
             <input 
               type="text" 
-              placeholder={`Search ${activeTab.toLowerCase()}s...`} 
+              placeholder={t(language, 'Search')} 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="btn-primary flex-align-gap" onClick={() => {
-            const printContents = document.getElementById('printable-customers-list').innerHTML;
-            const originalContents = document.body.innerHTML;
-            document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
-            window.print();
-            document.body.innerHTML = originalContents;
-            window.location.reload(); 
-          }} style={{marginLeft: 'auto'}}>
-            <Printer size={16} /> Print List
-          </button>
-          <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-customers-list', 'Customers_List.pdf')}>
-            <Download size={16} /> Download PDF
-          </button>
+          <div className="toolbar-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+            {activeTab === 'Customer' && (
+              <button className="btn-primary flex-align-gap" onClick={() => setShowAddModal(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> 
+                New Customer
+              </button>
+            )}
+            <button className="btn-outline flex-align-gap" onClick={() => {
+              const printContents = document.getElementById('printable-customers-list').innerHTML;
+              const originalContents = document.body.innerHTML;
+              document.body.innerHTML = '<div id="print-wrapper">' + printContents + '</div>';
+              window.print();
+              document.body.innerHTML = originalContents;
+              window.location.reload(); 
+            }}>
+              <Printer size={16} /> Print List
+            </button>
+            <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-customers-list', 'Customers_List.pdf')}>
+              <Download size={16} /> Download PDF
+            </button>
+          </div>
         </div>
 
         <div className="table-responsive">
@@ -141,10 +173,10 @@ const Customers = () => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Total Due (BDT)</th>
-                <th>Actions</th>
+                <th>{t(language, 'Name')}</th>
+                <th>{t(language, 'Phone')}</th>
+                <th>{t(language, 'Total Due')}</th>
+                <th>{t(language, 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -160,9 +192,9 @@ const Customers = () => {
                     <td>
                       <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
                         <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
-                          <Eye size={16} />
+                          <Printer size={16} />
                         </button>
-<button className="btn-outline" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}} onClick={() => setSettleModal({ show: true, target: person, amount: person.due, date: new Date().toISOString().split('T')[0] })}>Settle</button>
+                        <button className="btn-outline" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}} onClick={() => setSettleModal({ show: true, target: person, amount: person.due, date: new Date().toISOString().split('T')[0] })}>{t(language, 'Settle Due' || 'Settle')}</button>
                         {activeTab === 'Customer' && (
                           <button 
                             className="btn-primary flex-align-gap" style={{padding:'0.2rem 0.5rem', fontSize:'0.8rem'}}
@@ -184,7 +216,7 @@ const Customers = () => {
       {/* Hidden Printable List (Excel Style) */}
       <div id="printable-customers-list" style={{ display: 'none' }}>
         <div style={{ padding: '1.5rem', background: '#fff', color: '#000', fontFamily: 'sans-serif' }}>
-          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+          <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
           <p style={{ textAlign: 'center', fontSize: '1rem', marginBottom: '1.5rem', color: '#333' }}>
             {activeTab === 'Customer' ? 'Customers' : 'Suppliers'} Due List
           </p>
@@ -229,7 +261,7 @@ const Customers = () => {
         <div className="drawer-overlay">
           <div className="drawer-container" style={{ maxWidth: '400px' }}>
             <div className="drawer-header">
-              <h2>Settle Due</h2>
+              <h2>{t(language, 'Settle Due')}</h2>
               <button className="drawer-close-btn" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
@@ -238,15 +270,15 @@ const Customers = () => {
               <form id="settle-form" onSubmit={handleSettle}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Target</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Target' || 'Target')}</label>
                     <p className="font-bold">{settleModal.target?.name} ({settleModal.target?.id})</p>
                   </div>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Current Due (BDT)</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Current Due' || 'Current Due')} (BDT)</label>
                     <p className="font-bold text-danger text-lg">৳{settleModal.target?.due}</p>
                   </div>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Settlement Amount (BDT)</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Settlement Amount' || 'Settlement Amount')} (BDT)</label>
                     <input 
                       type="number" 
                       className="w-full" 
@@ -257,10 +289,10 @@ const Customers = () => {
                       max={settleModal.target?.due}
                       step="any"
                     />
-                    <small className="text-muted">Enter the amount they are paying to clear the due.</small>
+                    <small className="text-muted">{language === 'bn' ? 'বকেয়া পরিশোধের পরিমাণ লিখুন।' : 'Enter the amount they are paying to clear the due.'}</small>
                   </div>
                   <div>
-                    <label className="text-muted text-sm block mb-1">Date</label>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Date')}</label>
                     <input 
                       type="date" 
                       className="w-full" 
@@ -273,8 +305,82 @@ const Customers = () => {
               </form>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>Cancel</button>
-              <button type="submit" form="settle-form" className="btn-primary">Confirm Settlement</button>
+              <button type="button" className="btn-outline" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="settle-form" className="btn-primary">{t(language, 'Save')}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Add Customer Drawer */}
+      {showAddModal && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>Add New Customer</h2>
+              <button type="button" className="drawer-close-btn" onClick={() => setShowAddModal(false)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="add-customer-form" onSubmit={handleAddCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Customer Name *</label>
+                  <input 
+                    type="text" 
+                    value={newCustomer.name} 
+                    onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} 
+                    placeholder="e.g. Rahim Rahman" 
+                    required 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                  <input 
+                    type="text" 
+                    value={newCustomer.phone} 
+                    onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} 
+                    placeholder="e.g. 01712345678" 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                  <input 
+                    type="text" 
+                    value={newCustomer.location} 
+                    onChange={e => setNewCustomer({...newCustomer, location: e.target.value})} 
+                    placeholder="e.g. Dhaka" 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Opening Balance (Due)</label>
+                  <input 
+                    type="number" 
+                    value={newCustomer.due} 
+                    onChange={e => setNewCustomer({...newCustomer, due: e.target.value})} 
+                    placeholder="e.g. 5000" 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Notes / Remarks</label>
+                  <textarea 
+                    value={newCustomer.notes} 
+                    onChange={e => setNewCustomer({...newCustomer, notes: e.target.value})} 
+                    placeholder="Any additional information..." 
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                    rows={2}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button type="submit" form="add-customer-form" className="btn-primary">Add Customer</button>
             </div>
           </div>
         </div>,
@@ -325,7 +431,7 @@ const Customers = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-person" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Due Statement<br/>
                    Date: {new Date().toLocaleDateString()}

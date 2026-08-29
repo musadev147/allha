@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { Plus, Minus, Search, Trash2, Database, List, Printer, FilePlus, Eye, Download, FileText } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 import './Purchase.css';
 
 const Purchase = () => {
-  const { suppliers, inventory, purchases, processPurchase } = useStore();
+  const { suppliers, inventory, purchases, processPurchase, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   
   const [supplier, setSupplier] = useState('');
@@ -35,8 +37,8 @@ const Purchase = () => {
     <div className="purchase-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>Purchase & Supplier Management</h1>
-          <p className="text-muted">Enter new purchases from suppliers (Cash or Baki).</p>
+          <h1>{t(language, 'Purchase Management')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'সাপ্লায়ার থেকে নতুন ক্রয় যোগ করুন।' : 'Enter new purchases from suppliers (Cash or Baki).'}</p>
         </div>
       </div>
 
@@ -48,7 +50,7 @@ const Purchase = () => {
             onClick={() => setActiveTab('New')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <FilePlus size={16} /> New Entry
+            <FilePlus size={16} /> {t(language, 'New Purchase Order' || 'New Entry')}
           </button>
           <button 
             type="button"
@@ -56,7 +58,7 @@ const Purchase = () => {
             onClick={() => setActiveTab('History')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <List size={16} /> Purchase History
+            <List size={16} /> {t(language, 'Purchase History')}
           </button>
         </div>
       </div>
@@ -117,10 +119,10 @@ const Purchase = () => {
         {/* SINGLE INPUT ROW (Quick Entry) */}
         <div className="qe-input-row">
           <div className="qe-field">
-            <label>Product</label>
+            <label>{t(language, 'Item Name' || 'Product')}</label>
             <input 
               list="inventory-products"
-              placeholder="Search or Type Custom Product..."
+              placeholder={t(language, 'Search')}
               value={tempProductId}
               onChange={(e) => {
                 const val = e.target.value;
@@ -134,7 +136,7 @@ const Purchase = () => {
             </datalist>
           </div>
           <div className="qe-field">
-            <label>Variant</label>
+            <label>{t(language, 'Variant')}</label>
             <input 
               type="text" 
               placeholder="e.g. Red, XL" 
@@ -143,7 +145,7 @@ const Purchase = () => {
             />
           </div>
           <div className="qe-field">
-            <label>Quantity</label>
+            <label>{t(language, 'Qty')}</label>
             <input 
               type="number" 
               min="1" 
@@ -152,7 +154,7 @@ const Purchase = () => {
             />
           </div>
           <div className="qe-field">
-            <label>Unit Price (৳)</label>
+            <label>{t(language, 'Unit Price')} (৳)</label>
             <input 
               type="number" 
               min="0" 
@@ -196,12 +198,12 @@ const Purchase = () => {
           <table className="qe-table">
             <thead>
               <tr>
-                <th>Product Name</th>
-                <th>Variant</th>
-                <th style={{ textAlign: 'center' }}>Qty</th>
-                <th style={{ textAlign: 'right' }}>Unit Price</th>
-                <th style={{ textAlign: 'right' }}>Total</th>
-                <th style={{ width: '50px', textAlign: 'center' }}>Action</th>
+                <th>{t(language, 'Item Name')}</th>
+                <th>{t(language, 'Variant')}</th>
+                <th style={{ textAlign: 'center' }}>{t(language, 'Qty')}</th>
+                <th style={{ textAlign: 'right' }}>{t(language, 'Unit Price')}</th>
+                <th style={{ textAlign: 'right' }}>{t(language, 'Total')}</th>
+                <th style={{ width: '50px', textAlign: 'center' }}>{t(language, 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -247,7 +249,7 @@ const Purchase = () => {
           </div>
           <div className="flex-align-gap" style={{ gap: '1.5rem' }}>
             <div className="text-right">
-              <div className="text-muted text-sm uppercase font-bold">Total</div>
+              <div className="text-muted text-sm uppercase font-bold">{t(language, 'Total')}</div>
               <div className="qe-total" style={{ fontSize: paymentType === 'Baki' ? '1.2rem' : '1.5rem' }}>
                 ৳{items.reduce((acc, item) => acc + (item.quantity * item.price), 0).toLocaleString()}
               </div>
@@ -255,13 +257,13 @@ const Purchase = () => {
             {paymentType === 'Baki' && (
               <>
                 <div className="text-right" style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '1.5rem' }}>
-                  <div className="text-muted text-sm uppercase font-bold">Paid</div>
+                  <div className="text-muted text-sm uppercase font-bold">{t(language, 'Paid Amount')}</div>
                   <div className="qe-total text-success" style={{ fontSize: '1.2rem' }}>
                     ৳{parseFloat(paidAmount || 0).toLocaleString()}
                   </div>
                 </div>
                 <div className="text-right" style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '1.5rem' }}>
-                  <div className="text-danger text-sm uppercase font-bold">Due Amount</div>
+                  <div className="text-danger text-sm uppercase font-bold">{t(language, 'Due Amount')}</div>
                   <div className="qe-total text-danger" style={{ fontSize: '1.5rem' }}>
                     ৳{Math.max(0, items.reduce((acc, item) => acc + (item.quantity * item.price), 0) - (parseFloat(paidAmount) || 0)).toLocaleString()}
                   </div>
@@ -274,12 +276,12 @@ const Purchase = () => {
               onClick={() => {
                 const total = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
                 if (!supplier) {
-                  alert('Please select a supplier');
+                  toast.error('Please select a supplier');
                   return;
                 }
                 const validItems = items.filter(i => i.productId && i.quantity > 0);
                 if (validItems.length === 0) {
-                  alert('Please add at least one valid item');
+                  toast.error('Please add at least one valid item');
                   return;
                 }
                 
@@ -298,7 +300,7 @@ const Purchase = () => {
                   id: 'PUR' + Date.now()
                 });
                 
-                alert('Purchase successfully recorded!');
+                toast.success('Purchase successfully recorded!');
                 setSupplier('');
                 setPaidAmount('');
                 setItems([]);
@@ -352,15 +354,15 @@ const Purchase = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Purchase ID</th>
-                <th>Supplier</th>
-                <th>Items Qty</th>
-                <th>Payment Type</th>
-                <th>Total Cost</th>
-                <th>Paid</th>
-                <th>Due</th>
-                <th style={{textAlign:'center'}}>Actions</th>
+                <th>{t(language, 'Date')}</th>
+                <th>{t(language, 'Invoice ID')}</th>
+                <th>{t(language, 'Supplier Name')}</th>
+                <th>{t(language, 'Items')}</th>
+                <th>{t(language, 'Payment Method')}</th>
+                <th>{t(language, 'Total')}</th>
+                <th>{t(language, 'Paid Amount')}</th>
+                <th>{t(language, 'Due Amount')}</th>
+                <th style={{textAlign:'center'}}>{t(language, 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -390,7 +392,7 @@ const Purchase = () => {
 
         <div style={{ display: 'none' }}>
           <div id="printable-all-purchases-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
             <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Purchase History</h3>
             {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
             
@@ -465,7 +467,7 @@ const Purchase = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-invoice-pur" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Purchase Receipt: {selectedInvoice.id}<br/>
                    Date: {new Date(selectedInvoice.date).toLocaleString()}

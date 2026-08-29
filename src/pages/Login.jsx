@@ -3,12 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { Lock, User } from 'lucide-react';
 import './Login.css'; // We'll add some specific styling here
+import { t } from '../utils/i18n';
+import logo from '../assets/allah_dan.jpeg';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Salesman');
   const login = useStore((state) => state.login);
+  const language = useStore((state) => state.language);
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -22,15 +25,26 @@ const Login = () => {
     <div className="login-container">
       <div className="login-card card animate-fade-in">
         <div className="login-header">
-          <h2>Allah Dan</h2>
-          <p>Login to your account</p>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            margin: '0 auto 1rem',
+            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+            background: 'white'
+          }}>
+            <img src={logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <h2>Allah Dan Gents Point</h2>
+          <p>{t(language, 'Login to your account' || 'Login to your account')}</p>
         </div>
         <form onSubmit={handleLogin} className="login-form">
           <div className="input-group">
             <User size={18} className="input-icon" />
             <input
               type="text"
-              placeholder="Username or ID"
+              placeholder={t(language, 'Username or ID' || 'Username or ID')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -40,7 +54,7 @@ const Login = () => {
             <Lock size={18} className="input-icon" />
             <input
               type="password"
-              placeholder="Password"
+              placeholder={t(language, 'Password' || 'Password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -67,7 +81,7 @@ const Login = () => {
             </label>
           </div>
           <button type="submit" className="btn-primary">
-            Sign In
+            {t(language, 'Sign In' || 'Sign In')}
           </button>
         </form>
       </div>

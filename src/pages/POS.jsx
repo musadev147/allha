@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import useStore from '../store/useStore';
 import { Search, Plus, Minus, Trash2, Gift, Database, List, Printer, Eye, Download, FilePlus } from 'lucide-react';
 import { downloadAsPDF } from '../utils/pdfGenerator';
+import { t } from '../utils/i18n';
+import { toast } from 'react-toastify';
 import './POS.css';
 
 const POS = () => {
-  const { cart, inventory, staff, user, addToCart, removeFromCart, updateCartItem, clearCart, loadDummyData, processSale, sales } = useStore();
+  const { cart, inventory, staff, user, addToCart, removeFromCart, updateCartItem, clearCart, loadDummyData, processSale, sales, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   const [barcodeInput, setBarcodeInput] = useState('');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', location: '' });
@@ -44,7 +46,7 @@ const POS = () => {
       addToCart({ ...product, isGift: false, itemDiscount: 0 });
       setBarcodeInput('');
     } else {
-      alert('Product not found!');
+      toast.error('Product not found!');
     }
   };
 
@@ -61,7 +63,7 @@ const POS = () => {
 
   const handleCheckout = () => {
     if (!customerInfo.name) {
-      alert('Customer Name is explicitly required for all sales!');
+      toast.error('Customer Name is explicitly required for all sales!');
       return;
     }
     
@@ -80,6 +82,7 @@ const POS = () => {
     clearCart();
     setCustomerInfo({ name: '', phone: '', location: '' });
     setInvoiceDiscount(0);
+    toast.success('Sale processed successfully!');
   };
 
   return (
@@ -92,7 +95,7 @@ const POS = () => {
             onClick={() => setActiveTab('New')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <Plus size={16} /> Point of Sale
+            <Plus size={16} /> {t(language, 'Point of Sale')}
           </button>
           <button 
             type="button"
@@ -100,7 +103,7 @@ const POS = () => {
             onClick={() => setActiveTab('History')}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <List size={16} /> Sales History
+            <List size={16} /> {t(language, 'Sales History')}
           </button>
         </div>
       </div>
@@ -109,18 +112,18 @@ const POS = () => {
       <div className="pos-container animate-fade-in">
         <div className="pos-left glass">
           <div className="pos-header">
-            <h2>Point of Sale</h2>
+            <h2>{t(language, 'Point of Sale')}</h2>
           <form onSubmit={handleBarcodeSubmit} className="barcode-form">
             <Search size={18} className="text-muted" />
             <input 
               id="barcode-input"
               type="text" 
-              placeholder="Scan Barcode or Enter ID..." 
+              placeholder={t(language, 'Scan barcode or search items...')} 
               value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
               autoComplete="off"
             />
-            <button type="submit" className="btn-primary">Add</button>
+            <button type="submit" className="btn-primary">{t(language, 'Add')}</button>
           </form>
         </div>
 
@@ -128,7 +131,7 @@ const POS = () => {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', padding: '0 1.5rem 1rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
           {inventory.length === 0 ? (
             <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={loadDummyData}>
-              <Database size={16} /> Load Dummy Inventory
+              <Database size={16} /> {t(language, 'Load Dummy Inventory')}
             </button>
           ) : (
             inventory.slice(0, 5).map(item => (
@@ -152,7 +155,7 @@ const POS = () => {
 
         <div className="cart-list">
           {cart.length === 0 ? (
-            <div className="empty-cart text-muted">Cart is empty. Scan an item to begin.</div>
+            <div className="empty-cart text-muted">{t(language, 'No items in cart')}</div>
           ) : (
             cart.map(item => (
               <div className="cart-item glass" key={item.id}>
@@ -212,34 +215,34 @@ const POS = () => {
       </div>
 
       <div className="pos-right glass">
-        <h3>Checkout Details</h3>
+        <h3>{t(language, 'Checkout Details')}</h3>
         
         <div className="checkout-section">
-          <label>Customer Details <span className="text-danger">*</span></label>
+          <label>{t(language, 'Customer Details')} <span className="text-danger">*</span></label>
           <input 
             type="text" 
-            placeholder="Customer Name (Required)" 
+            placeholder={t(language, 'Customer Name')} 
             value={customerInfo.name}
             onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})}
             className="mb-2"
           />
           <input 
             type="text" 
-            placeholder="Phone Number" 
+            placeholder={t(language, 'Phone')} 
             value={customerInfo.phone}
             onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
             className="mb-2"
           />
           <input 
             type="text" 
-            placeholder="Location/Address" 
+            placeholder={t(language, 'Address')} 
             value={customerInfo.location}
             onChange={e => setCustomerInfo({...customerInfo, location: e.target.value})}
           />
         </div>
 
         <div className="checkout-section">
-          <label>Salesman</label>
+          <label>{t(language, 'Salesman')}</label>
           <select 
             className="w-full mb-2" 
             value={selectedSalesman} 
@@ -251,32 +254,32 @@ const POS = () => {
         </div>
 
         <div className="checkout-section">
-          <label>Payment Type</label>
+          <label>{t(language, 'Payment Method')}</label>
             <div className="segmented-control">
               <button 
                 type="button"
                 className={paymentType === 'Cash' ? 'active' : ''}
                 onClick={() => setPaymentType('Cash')}
               >
-                Cash
+                {t(language, 'Cash')}
               </button>
               <button 
                 type="button"
                 className={paymentType === 'Baki' ? 'active' : ''}
                 onClick={() => setPaymentType('Baki')}
               >
-                Baki (Due)
+                {t(language, 'Due (Baki)')}
               </button>
             </div>
         </div>
 
         <div className="checkout-section summary-section">
           <div className="summary-row">
-            <span>Subtotal</span>
+            <span>{t(language, 'Subtotal')}</span>
             <span>৳{subtotal}</span>
           </div>
           <div className="summary-row">
-            <span>Invoice Discount</span>
+            <span>{t(language, 'Discount')}</span>
             <input 
               type="number" 
               className="discount-input"
@@ -286,14 +289,14 @@ const POS = () => {
             />
           </div>
           <div className="summary-row total-row">
-            <span>Total Payable</span>
+            <span>{t(language, 'Total Payable')}</span>
             <span className="text-primary text-xl">৳{total}</span>
           </div>
         </div>
 
         <div className="checkout-actions">
           <button className="btn-primary checkout-btn" onClick={handleCheckout} disabled={cart.length === 0}>
-            Complete Sale
+            {t(language, 'Process Sale & Print')}
           </button>
         </div>
       </div>
@@ -311,7 +314,7 @@ const POS = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-invoice" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Receipt: {completedSale.invoiceId}<br/>
                    Date: {new Date(completedSale.date).toLocaleString()}
@@ -426,13 +429,13 @@ const POS = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Invoice ID</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Payment</th>
-                <th>Total</th>
-                <th style={{textAlign:'center'}}>Actions</th>
+                <th>{t(language, 'Date')}</th>
+                <th>{t(language, 'Invoice ID')}</th>
+                <th>{t(language, 'Customer Name')}</th>
+                <th>{t(language, 'Items')}</th>
+                <th>{t(language, 'Payment Method')}</th>
+                <th>{t(language, 'Total')}</th>
+                <th style={{textAlign:'center'}}>{t(language, 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -460,7 +463,7 @@ const POS = () => {
         
         <div style={{ display: 'none' }}>
           <div id="printable-all-sales-details" style={{ padding: '2rem', background: '#fff', color: '#000' }}>
-            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+            <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
             <h3 style={{ textAlign: 'center', fontSize: '1.1rem', marginBottom: '1rem' }}>Detailed Sales History</h3>
             {(startDate || endDate) && <p style={{textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem'}}>Date Filter: {startDate || 'Any'} to {endDate || 'Any'}</p>}
             
@@ -526,7 +529,7 @@ const POS = () => {
             
             <div className="drawer-body" style={{ padding: '0', backgroundColor: '#fff' }}>
               <div id="printable-single-invoice-pos" style={{ padding: '1.5rem', background: '#fff', color: '#000' }}>
-                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan</h2>
+                 <h2 style={{ textAlign: 'center', marginBottom: '0.5rem', color: '#000', fontSize: '1.5rem', fontWeight: 'bold' }}>Allah Dan Gents Point</h2>
                  <p style={{ textAlign: 'center', fontSize: '0.85rem', marginBottom: '1rem', color: '#555' }}>
                    Sale Receipt: {selectedInvoice.id}<br/>
                    Date: {new Date(selectedInvoice.date).toLocaleString()}

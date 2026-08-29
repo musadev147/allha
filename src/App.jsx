@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import logo from './assets/allah_dan.jpeg';
 import useStore from './store/useStore';
+import TopLoader from './components/TopLoader';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Inventory from './pages/Inventory';
@@ -15,6 +19,7 @@ import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import SMS from './pages/SMS';
+import Accounts from './pages/Accounts';
 
 // Placeholder Pages (will be extracted to separate files in later phases)
 
@@ -50,13 +55,21 @@ function App() {
     // Keep legacy light-mode logic if it was used anywhere else
     if (theme === 'light') {
       document.body.classList.add('light-mode');
+      document.body.classList.remove('dark-mode');
     } else {
       document.body.classList.remove('light-mode');
+      document.body.classList.add('dark-mode');
     }
   }, [theme, themeGradient]);
 
   return (
     <Router>
+      <TopLoader />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={4000} 
+        icon={<img src={logo} alt="Logo" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />}
+      />
       <Routes>
         <Route path="/login" element={<Login />} />
         
@@ -73,6 +86,7 @@ function App() {
           <Route path="/expenses" element={<Expenses />} />
           
           {/* Admin Only Routes */}
+          <Route path="accounts" element={<ProtectedRoute requiredRole="Admin"><Accounts /></ProtectedRoute>} />
           <Route path="hr" element={<ProtectedRoute requiredRole="Admin"><HR /></ProtectedRoute>} />
           <Route path="reports" element={<ProtectedRoute requiredRole="Admin"><Reports /></ProtectedRoute>} />
           <Route path="settings" element={<ProtectedRoute requiredRole="Admin"><Settings /></ProtectedRoute>} />

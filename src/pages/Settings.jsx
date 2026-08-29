@@ -1,5 +1,6 @@
 import React from 'react';
 import useStore from '../store/useStore';
+import { t } from '../utils/i18n';
 
 const themeOptions = [
   { id: 'theme-sky', name: 'Sky Blue (Akasi)', color1: '#0ea5e9', color2: '#38bdf8' },
@@ -13,19 +14,22 @@ const themeOptions = [
 const Settings = () => {
   const themeGradient = useStore((state) => state.themeGradient) || 'theme-sky';
   const setThemeGradient = useStore((state) => state.setThemeGradient);
+  const smsSettings = useStore((state) => state.smsSettings);
+  const updateSmsSettings = useStore((state) => state.updateSmsSettings);
+  const language = useStore((state) => state.language);
 
   return (
     <div className="settings-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h1>App Settings</h1>
-          <p className="text-muted">Configure your shop settings and appearance.</p>
+          <h1>{t(language, 'Settings' || 'App Settings')}</h1>
+          <p className="text-muted">{language === 'bn' ? 'আপনার দোকানের সেটিংস এবং থিম কনফিগার করুন।' : 'Configure your shop settings and appearance.'}</p>
         </div>
       </div>
       
       <div className="card glass">
-        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>Theme Colors</h3>
-        <p className="text-muted" style={{ marginBottom: '2rem' }}>Choose a primary color gradient for your application.</p>
+        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>{t(language, 'Theme Colors' || 'Theme Colors')}</h3>
+        <p className="text-muted" style={{ marginBottom: '2rem' }}>{language === 'bn' ? 'আপনার অ্যাপ্লিকেশনের জন্য একটি প্রাথমিক রঙের থিম চয়ন করুন।' : 'Choose a primary color gradient for your application.'}</p>
         
         <div style={{
           display: 'grid',
@@ -66,6 +70,26 @@ const Settings = () => {
               </span>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="card glass mt-4">
+        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-main)' }}>{t(language, 'SMS Automation' || 'SMS Automation')}</h3>
+        <p className="text-muted" style={{ marginBottom: '1rem' }}>{language === 'bn' ? 'নির্দিষ্ট ইভেন্টের জন্য গ্রাহকদের স্বয়ংক্রিয়ভাবে এসএমএস পাঠান।' : 'Automatically send SMS notifications to customers for specific events.'}</p>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={smsSettings?.autoSalesConfirm} onChange={(e) => updateSmsSettings({ autoSalesConfirm: e.target.checked })} style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{t(language, 'Sales Confirmation SMS' || 'Sales Confirmation SMS')}</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={smsSettings?.autoPaymentReceive} onChange={(e) => updateSmsSettings({ autoPaymentReceive: e.target.checked })} style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{t(language, 'Customer Payment SMS' || 'Customer Payment SMS')}</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={smsSettings?.autoDueReminder} onChange={(e) => updateSmsSettings({ autoDueReminder: e.target.checked })} style={{ width: '1.25rem', height: '1.25rem' }} />
+            <span style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{t(language, 'Due SMS Notification' || 'Due SMS Notification')}</span>
+          </label>
         </div>
       </div>
     </div>

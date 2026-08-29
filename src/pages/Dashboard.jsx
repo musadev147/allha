@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Package, DollarSign, TrendingUp, TrendingDown, Truck, RefreshCcw, Users, ArrowRight, Clock } from 'lucide-react';
+import { ShoppingCart, Package, DollarSign, TrendingUp, TrendingDown, Truck, RefreshCcw, Users, ArrowRight, Clock, MessageSquare, FileText, Settings, Landmark, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -17,7 +17,7 @@ const mockChartData = [
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  const { user, sales, expenses, inventory, customers, suppliers, purchases } = useStore();
+  const { user, sales, expenses, inventory, customers, suppliers, purchases, language } = useStore();
   const isAdmin = user?.role === 'Admin';
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -74,176 +74,210 @@ const Dashboard = () => {
 
   // --- ACTIVE BORDER DESIGN ---
   const stats = [
-    { label: "Total Balance (Net)", value: `৳${netBalance.toLocaleString()}`, icon: DollarSign, color: "var(--success)", highlight: true },
-    { label: "Today's Sales", value: `৳${dailySales.toLocaleString()}`, icon: ShoppingCart, color: "var(--primary)" },
-    { label: "Today's Expense", value: `৳${dailyExpenses.toLocaleString()}`, icon: TrendingDown, color: "var(--danger)" },
-    { label: "Today's Net Profit", value: `৳${dailyProfit.toLocaleString()}`, icon: TrendingUp, color: dailyProfit >= 0 ? "#10b981" : "var(--danger)" },
-    { label: "Monthly Profit", value: `৳${monthlyProfit.toLocaleString()}`, icon: TrendingUp, color: monthlyProfit >= 0 ? "#10b981" : "var(--danger)" },
-    { label: "Monthly Expense", value: `৳${monthlyExpenses.toLocaleString()}`, icon: DollarSign, color: "var(--warning)" },
-    { label: "Inventory Value", value: `৳${totalInventoryValue.toLocaleString()}`, icon: Package, color: "var(--info)" },
-    { label: "Customer Due (Receivable)", value: `৳${totalCustomerDue.toLocaleString()}`, icon: Users, color: "var(--warning)" },
-    { label: "Supplier Due (Payable)", value: `৳${totalSupplierDue.toLocaleString()}`, icon: Users, color: "var(--danger)" }
+    { label: language === 'bn' ? "মোট ব্যালেন্স (নেট)" : "Total Balance (Net)", value: `৳${netBalance.toLocaleString()}`, icon: DollarSign, color: "var(--success)" },
+    { label: language === 'bn' ? "আজকের বিক্রয়" : "Today's Sales", value: `৳${dailySales.toLocaleString()}`, icon: ShoppingCart, color: "var(--primary)" },
+    { label: language === 'bn' ? "আজকের খরচ" : "Today's Expense", value: `৳${dailyExpenses.toLocaleString()}`, icon: TrendingDown, color: "var(--danger)" },
+    { label: language === 'bn' ? "আজকের নিট লাভ" : "Today's Net Profit", value: `৳${dailyProfit.toLocaleString()}`, icon: TrendingUp, color: dailyProfit >= 0 ? "#10b981" : "var(--danger)" },
+    { label: language === 'bn' ? "মাসিক লাভ" : "Monthly Profit", value: `৳${monthlyProfit.toLocaleString()}`, icon: TrendingUp, color: monthlyProfit >= 0 ? "#10b981" : "var(--danger)" },
+    { label: language === 'bn' ? "মাসিক খরচ" : "Monthly Expense", value: `৳${monthlyExpenses.toLocaleString()}`, icon: DollarSign, color: "var(--warning)" },
+    { label: language === 'bn' ? "স্টক ভ্যালু" : "Inventory Value", value: `৳${totalInventoryValue.toLocaleString()}`, icon: Package, color: "var(--info)" },
+    { label: language === 'bn' ? "কাস্টমার বকেয়া" : "Customer Due", value: `৳${totalCustomerDue.toLocaleString()}`, icon: Users, color: "var(--warning)" },
+    { label: language === 'bn' ? "সাপ্লায়ার বকেয়া" : "Supplier Due", value: `৳${totalSupplierDue.toLocaleString()}`, icon: Users, color: "var(--danger)" }
   ];
 
-  const allQuickActions = [
-    { name: 'Point of Sale', path: '/pos', icon: ShoppingCart, color: 'var(--primary)' },
-    { name: 'Inventory', path: '/inventory', icon: Package, color: 'var(--info)' },
-    { name: 'Purchases', path: '/purchases', icon: Truck, color: 'var(--warning)' },
-    { name: 'Returns', path: '/returns', icon: RefreshCcw, color: 'var(--danger)' },
-    { name: 'Customers & Due', path: '/customers', icon: Users, color: 'var(--secondary)' },
-    { name: 'Expenses', path: '/expenses', icon: DollarSign, color: 'var(--text-muted)' },
+  const bkashServices = [
+    { name: language === 'bn' ? 'বিক্রয়' : 'POS', path: '/pos', icon: ShoppingCart },
+    { name: language === 'bn' ? 'স্টক' : 'Inventory', path: '/inventory', icon: Package },
+    { name: language === 'bn' ? 'ক্রয়' : 'Purchases', path: '/purchases', icon: Truck },
+    { name: language === 'bn' ? 'রিটার্ন' : 'Returns', path: '/returns', icon: RefreshCcw },
+    { name: language === 'bn' ? 'সাপ্লায়ার' : 'Suppliers', path: '/suppliers', icon: Users },
+    { name: language === 'bn' ? 'কাস্টমার' : 'Customers', path: '/customers', icon: Users },
+    { name: language === 'bn' ? 'খরচ' : 'Expenses', path: '/expenses', icon: DollarSign },
   ];
+
+  const adminServices = user?.role === 'Admin' ? [
+    { name: language === 'bn' ? 'হিসাব' : 'Accounts', icon: Landmark, path: '/accounts' },
+    { name: language === 'bn' ? 'রিপোর্ট' : 'Reports', icon: FileText, path: '/reports' },
+    { name: language === 'bn' ? 'কর্মী' : 'HR', icon: Calendar, path: '/hr' },
+    { name: language === 'bn' ? 'এসএমএস' : 'SMS', icon: MessageSquare, path: '/sms' },
+    { name: language === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings, path: '/settings' }
+  ] : [];
+
+  const allServices = [...bkashServices, ...adminServices];
 
   return (
-    <div className="dashboard-page animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="dashboard-page animate-fade-in" style={{ padding: '0.5rem' }}>
+      
+      {/* Header Section */}
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
         <div>
-          <h1>Dashboard Overview</h1>
-          <p className="text-muted">Welcome to Allah Dan System.</p>
+          <h1 style={{ fontSize: '2.4rem', fontWeight: '800', letterSpacing: '-1px', color: 'var(--text-main)', marginBottom: '0.5rem' }}>{language === 'bn' ? 'ওভারভিউ' : 'Overview'}</h1>
+          <p className="text-muted" style={{ fontSize: '1.1rem' }}>{language === 'bn' ? 'আল্লাহর দান জেন্টস পয়েন্টে স্বাগতম। আজকের কাজের সারাংশ এখানে।' : "Welcome back to Allah Dan Gents Point. Here is what's happening today."}</p>
         </div>
 
-        <div className="card glass animate-fade-in" style={{
-          padding: '0.8rem 1.5rem',
+        <div className="card" style={{
+          padding: '1rem 1.5rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '1rem',
-          minWidth: 'fit-content'
+          gap: '1.25rem',
+          minWidth: 'fit-content',
+          borderRadius: '20px',
+          background: 'linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.6))',
+          boxShadow: '0 10px 40px -10px rgba(0,0,0,0.08)',
+          border: '1px solid rgba(255,255,255,0.8)'
         }}>
           <div style={{
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-            padding: '10px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white'
+            background: 'var(--primary)',
+            padding: '12px',
+            borderRadius: '16px',
+            color: 'white',
+            boxShadow: '0 8px 16px rgba(139, 92, 246, 0.25)'
           }}>
-            <Clock size={24} />
+            <Clock size={28} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{
-              fontSize: '1.8rem',
-              fontWeight: '800',
-              fontFamily: '"Orbitron", monospace, sans-serif',
-              lineHeight: '1.2',
-              background: 'linear-gradient(to right, var(--primary), var(--secondary))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '1px'
+              fontSize: '1.6rem',
+              fontWeight: '700',
+              color: 'var(--text-main)',
+              lineHeight: '1.1',
+              fontVariantNumeric: 'tabular-nums'
             }}>
-              {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' })}
+              <span style={{ fontSize: '1rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                {currentTime.toLocaleTimeString('en-US', { hour12: true, second: '2-digit' }).split(' ')[0].slice(-2)} {currentTime.toLocaleTimeString('en-US', { hour12: true }).split(' ')[1]}
+              </span>
             </span>
-            <span className="text-muted" style={{
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              letterSpacing: '0.5px',
-              textTransform: 'uppercase'
-            }}>
-              {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+            <span className="text-muted" style={{ fontSize: '0.9rem', fontWeight: '500', marginTop: '2px' }}>
+              {currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
         </div>
       </div>
 
-      {/* --- GRADIENT LAYOUT (Commented out) --- */}
-      {/* 
-      <div className="grid responsive-grid-3" style={{ marginBottom: '2rem', gap: '1.5rem' }}>
-        {stats.map((stat, idx) => (
-          <div key={idx} className="stat-card-hover" style={{ 
-            position: 'relative',
-            overflow: 'hidden',
-            background: stat.gradient,
-            boxShadow: stat.shadow,
-            border: 'none',
-            color: 'white',
-            padding: '1.5rem',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-          }}>
-            <stat.icon size={120} style={{ 
-              position: 'absolute', 
-              right: '-15px', 
-              bottom: '-15px', 
-              opacity: 0.15, 
-              transform: 'rotate(-15deg)',
-              pointerEvents: 'none'
-            }} />
-            
-            <div className="flex-align-gap" style={{ justifyContent: 'space-between', marginBottom: '1rem', position: 'relative', zIndex: 1 }}>
-               <h3 style={{ fontSize: '1rem', fontWeight: '600', opacity: 0.9, letterSpacing: '0.5px' }}>{stat.label}</h3>
-               <div style={{ padding: '8px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.25)', backdropFilter: 'blur(5px)' }}>
-                 <stat.icon color="white" size={24} />
-               </div>
-            </div>
-            <p style={{ fontSize: '2.2rem', fontWeight: '800', margin: 0, position: 'relative', zIndex: 1, textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-      */}
-
-      {/* --- ACTIVE BORDER LAYOUT --- */}
-      <div className="grid responsive-grid" style={{ marginBottom: '2rem' }}>
-        {stats.map((stat, idx) => (
-          <div key={idx} className="card flex-align-gap stat-card-hover" style={{ 
-            flexDirection: 'column', 
-            alignItems: 'flex-start',
-            border: stat.highlight ? `2px solid ${stat.color}` : 'none',
-            borderLeft: !stat.highlight ? `4px solid ${stat.color}` : `4px solid ${stat.color}`,
-            background: stat.highlight ? '#f0fdf4' : 'rgba(255, 255, 255, 0.85)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
-            backdropFilter: 'blur(10px)',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-          }}>
-            <div className="flex-align-gap w-full" style={{ justifyContent: 'space-between', width: '100%' }}>
-               <h3 className="text-sm font-bold" style={{ color: stat.highlight ? '#000' : '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</h3>
-               <div style={{ padding: '8px', borderRadius: '50%', background: `${stat.color}15` }}>
-                 <stat.icon style={{ color: stat.color }} size={22} />
-               </div>
-            </div>
-            <p className="font-bold mt-2" style={{ fontSize: '1.75rem', marginTop: '0.8rem', color: stat.highlight ? stat.color : '#1e293b' }}>
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '600' }}>Quick Actions</h2>
-      <div className="grid responsive-grid-3" style={{ marginBottom: '2rem' }}>
-        {allQuickActions.map((action, index) => (
-          <div
-            key={index}
-            className="card flex-align-gap quick-action-card"
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '1.5rem'
-            }}
-            onClick={() => navigate(action.path)}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-          >
-            <div className="flex-align-gap">
+      {/* --- PREMIUM bKash Style Services Grid --- */}
+      <div className="card" style={{ 
+        marginBottom: '2.5rem', 
+        padding: '2rem', 
+        borderRadius: '24px', 
+        border: 'none', 
+        background: 'var(--bg-card)',
+        boxShadow: 'var(--shadow-md)'
+      }}>
+        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)' }}>{language === 'bn' ? 'কুইক সার্ভিস' : 'Quick Services'}</h2>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', 
+          gap: '1.5rem',
+          justifyItems: 'center'
+        }}>
+          {allServices.map((service, index) => (
+            <div
+              key={index}
+              onClick={() => navigate(service.path)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer',
+                width: '100%',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-5px)';
+                e.currentTarget.children[0].style.boxShadow = '0 12px 20px rgba(233, 30, 99, 0.25)';
+                e.currentTarget.children[0].style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.children[0].style.boxShadow = '0 4px 12px rgba(233, 30, 99, 0.15)';
+                e.currentTarget.children[0].style.transform = 'scale(1)';
+              }}
+            >
               <div style={{
-                padding: '0.75rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'var(--bg-hover)',
+                width: '68px',
+                height: '68px',
+                borderRadius: '22px', // Squircle shape
+                backgroundColor: '#fdf2f8', // Soft pink background
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: action.color
+                marginBottom: '12px',
+                color: '#e91e63',
+                boxShadow: '0 4px 12px rgba(233, 30, 99, 0.15)',
+                transition: 'all 0.3s ease',
+                border: '1px solid rgba(233, 30, 99, 0.1)'
               }}>
-                <action.icon size={24} />
+                <service.icon size={30} strokeWidth={1.5} />
               </div>
-              <span style={{ fontSize: '0.9rem', fontWeight: '500', marginLeft: '0.75rem' }}>{action.name}</span>
+              <span style={{ 
+                fontSize: '0.85rem', 
+                fontWeight: '600', 
+                textAlign: 'center',
+                color: 'var(--text-main)',
+                letterSpacing: '0.2px'
+              }}>
+                {service.name}
+              </span>
             </div>
-            <ArrowRight size={20} className="text-muted" style={{ opacity: 0.5 }} />
+          ))}
+        </div>
+      </div>
+
+      {/* --- PREMIUM ACTIVE BORDER LAYOUT --- */}
+      <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)' }}>{language === 'bn' ? 'সারসংক্ষেপ' : 'Business Summary'}</h2>
+      <div className="grid responsive-grid" style={{ marginBottom: '2.5rem', gap: '1.25rem' }}>
+        {stats.map((stat, idx) => (
+          <div key={idx} className="card" style={{ 
+            flexDirection: 'column', 
+            alignItems: 'flex-start',
+            border: 'none',
+            borderRadius: '20px',
+            background: '#ffffff',
+            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.02)',
+            transition: 'all 0.3s ease',
+            padding: '1.5rem',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.02)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.02)';
+          }}
+          >
+            {/* Subtle color glow in the corner */}
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              width: '100px',
+              height: '100px',
+              background: `radial-gradient(circle, ${stat.color}25 0%, transparent 70%)`,
+              borderRadius: '50%',
+              pointerEvents: 'none'
+            }} />
+            
+            <div className="flex-align-gap w-full" style={{ justifyContent: 'space-between', width: '100%', position: 'relative', zIndex: 1 }}>
+               <h3 style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.label}</h3>
+               <div style={{ padding: '8px', borderRadius: '12px', background: `${stat.color}15`, color: stat.color }}>
+                 <stat.icon size={20} strokeWidth={2} />
+               </div>
+            </div>
+            <p style={{ 
+              fontSize: '2rem', 
+              fontWeight: '800', 
+              marginTop: '1rem', 
+              color: 'var(--text-main)',
+              letterSpacing: '-1px',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              {stat.value}
+            </p>
           </div>
         ))}
       </div>
