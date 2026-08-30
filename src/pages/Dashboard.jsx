@@ -121,10 +121,7 @@ const Dashboard = () => {
           alignItems: 'center',
           gap: '1.25rem',
           minWidth: 'fit-content',
-          borderRadius: '20px',
-          background: 'linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.6))',
-          boxShadow: '0 10px 40px -10px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(255,255,255,0.8)'
+          borderRadius: '20px'
         }}>
           <div style={{
             background: 'var(--primary)',
@@ -231,10 +228,7 @@ const Dashboard = () => {
           <div key={idx} className="card" style={{ 
             flexDirection: 'column', 
             alignItems: 'flex-start',
-            border: 'none',
             borderRadius: '20px',
-            background: '#ffffff',
-            boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.02)',
             transition: 'all 0.3s ease',
             padding: '1.5rem',
             position: 'relative',
