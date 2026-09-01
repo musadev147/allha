@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Minus, Search, Trash2, Database, List, Printer, FilePlus, Eye, Download, FileText } from 'lucide-react';
+import { Plus, Minus, Search, Trash2, Database, List, Printer, FilePlus, Eye, Download, FileText, Edit } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import './Purchase.css';
 
 const Purchase = () => {
-  const { suppliers, inventory, purchases, processPurchase, language } = useStore();
+  const { suppliers, inventory, purchases, processPurchase, deletePurchase, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   
   const [supplier, setSupplier] = useState('');
@@ -32,6 +32,30 @@ const Purchase = () => {
     if (endDate && pDate > endDate) return false;
     return true;
   });
+
+  const handleEditPurchase = (purchase) => {
+    if (window.confirm('Editing will reverse this purchase from history and load it into the new purchase form. Do you want to continue?')) {
+      // 1. Load details into form
+      setSupplier(purchase.supplierName);
+      setPaymentType(purchase.paymentType);
+      setPaidAmount(purchase.paidAmount !== undefined ? purchase.paidAmount : purchase.total);
+      setItems(purchase.items);
+      
+      // 2. Delete the old purchase to reverse stock and balances
+      deletePurchase(purchase.id);
+      
+      // 3. Switch to New tab
+      setActiveTab('New');
+      toast.info('Purchase loaded for editing.');
+    }
+  };
+
+  const handleDeletePurchase = (id) => {
+    if (window.confirm('Are you sure you want to delete this purchase? This will reverse stock and supplier balances. This action cannot be undone.')) {
+      deletePurchase(id);
+      toast.success('Purchase deleted successfully!');
+    }
+  };
 
   return (
     <div className="purchase-page animate-fade-in">
@@ -377,9 +401,15 @@ const Purchase = () => {
                   <td className="text-success font-bold">৳{(p.paidAmount !== undefined ? p.paidAmount : p.total).toLocaleString()}</td>
                   <td className="text-danger font-bold">৳{Math.max(0, p.total - (p.paidAmount !== undefined ? p.paidAmount : p.total)).toLocaleString()}</td>
                   <td style={{textAlign:'center'}}>
-                    <div className="flex-align-gap" style={{justifyContent:'center'}}>
+                    <div className="flex-align-gap" style={{justifyContent:'center', flexWrap: 'nowrap'}}>
                       <button className="btn-icon" title="View & Print" onClick={() => setSelectedInvoice(p)}>
                         <Eye size={16} />
+                      </button>
+                      <button className="btn-icon text-info" title="Edit" onClick={() => handleEditPurchase(p)}>
+                        <Edit size={16} />
+                      </button>
+                      <button className="btn-icon text-danger" title="Delete" onClick={() => handleDeletePurchase(p.id)}>
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>

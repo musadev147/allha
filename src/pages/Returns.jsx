@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCcw, Search, PackageMinus, PackagePlus, List, Plus, Printer, Eye, Download } from 'lucide-react';
+import { RefreshCcw, Search, PackageMinus, PackagePlus, List, Plus, Printer, Eye, Download, Edit, Trash2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import './Returns.css';
 
 const Returns = () => {
-  const { inventory, processReturn, returns, language } = useStore();
+  const { inventory, processReturn, deleteReturn, returns, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   
   // New Return State
@@ -60,6 +60,28 @@ const Returns = () => {
     const item = inventory.find(i => i.id === id);
     return item ? item.name : 'Unknown Product';
   };
+
+  const handleEditReturn = (ret) => {
+    if (window.confirm('Editing will reverse this return from history and load it into the new entry form. Do you want to continue?')) {
+      setReturnType(ret.returnType);
+      setProduct(ret.productId);
+      setQuantity(ret.quantity);
+      setReason(ret.reason);
+      setReferenceId(ret.referenceId || '');
+      
+      deleteReturn(ret.id);
+      setActiveTab('New');
+      toast.info('Return loaded for editing.');
+    }
+  };
+
+  const handleDeleteReturn = (id) => {
+    if (window.confirm('Are you sure you want to delete this return? This will reverse stock adjustments. This action cannot be undone.')) {
+      deleteReturn(id);
+      toast.success('Return deleted successfully!');
+    }
+  };
+
   return (
     <div className="returns-page animate-fade-in">
       <div className="page-header">
@@ -217,11 +239,17 @@ const Returns = () => {
                      <td className="font-bold">{r.quantity}</td>
                      <td>{r.reason}</td>
                      <td style={{textAlign: 'center'}}>
-                        <div className="flex-align-gap" style={{justifyContent:'center'}}>
+                        <div className="flex-align-gap" style={{justifyContent:'center', flexWrap: 'nowrap'}}>
                           <button className="btn-icon" title="View & Print" onClick={() => setSelectedInvoice(r)}>
                             <Eye size={16} />
                           </button>
-</div>
+                          <button className="btn-icon text-info" title="Edit" onClick={() => handleEditReturn(r)}>
+                            <Edit size={16} />
+                          </button>
+                          <button className="btn-icon text-danger" title="Delete" onClick={() => handleDeleteReturn(r.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                      </td>
                    </tr>
                  ))}

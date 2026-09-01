@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, PieChart, DollarSign, Printer, Eye, Download } from 'lucide-react';
+import { Plus, X, PieChart, DollarSign, Printer, Eye, Download, Edit, Trash2 } from 'lucide-react';
 
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
@@ -9,11 +9,12 @@ import { t } from '../utils/i18n';
 const EXPENSE_CATEGORIES = ['Shop Rent', 'Electricity Bill', 'Transport', 'Staff Cost', 'Others'];
 
 const Expenses = () => {
-  const { expenses, addExpense, language } = useStore();
+  const { expenses, addExpense, updateExpense, deleteExpense, language } = useStore();
   const [showModal, setShowModal] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
   const [newExpense, setNewExpense] = useState({ date: todayStr, category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [editingExpense, setEditingExpense] = useState(null);
 
   const [showReport, setShowReport] = useState(false);
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().substring(0, 7));
@@ -27,6 +28,21 @@ const Expenses = () => {
     });
     setShowModal(false);
     setNewExpense({ date: todayStr, category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
+  };
+
+  const handleEditExpense = (e) => {
+    e.preventDefault();
+    updateExpense(editingExpense.id, {
+      ...editingExpense,
+      amount: parseFloat(editingExpense.amount)
+    });
+    setEditingExpense(null);
+  };
+
+  const handleDeleteExpense = (id) => {
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+      deleteExpense(id);
+    }
   };
 
   // Monthly Report Calculations
@@ -110,11 +126,17 @@ const Expenses = () => {
                     <td>{exp.description}</td>
                     <td className="text-danger font-bold">৳{exp.amount.toLocaleString()}</td>
                     <td style={{textAlign:'center'}}>
-                      <div className="flex-align-gap" style={{justifyContent:'center'}}>
+                      <div className="flex-align-gap" style={{justifyContent:'center', flexWrap: 'nowrap'}}>
                         <button className="btn-icon" title="View & Print" onClick={() => setSelectedExpense(exp)}>
                           <Eye size={16} />
                         </button>
-</div>
+                        <button className="btn-icon text-info" title="Edit" onClick={() => setEditingExpense(exp)}>
+                          <Edit size={16} />
+                        </button>
+                        <button className="btn-icon text-danger" title="Delete" onClick={() => handleDeleteExpense(exp.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -228,6 +250,70 @@ const Expenses = () => {
             <div className="drawer-footer">
               <button type="button" className="btn-outline" onClick={() => setShowModal(false)}>{t(language, 'Cancel')}</button>
               <button type="submit" form="add-expense-form" className="btn-primary">{t(language, 'Save')}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Expense Drawer */}
+      {editingExpense && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>{t(language, 'Edit Expense')}</h2>
+              <button className="drawer-close-btn" onClick={() => setEditingExpense(null)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="edit-expense-form" onSubmit={handleEditExpense}>
+                <div className="form-group mb-4 mt-4">
+                  <label>Date</label>
+                  <input 
+                    type="date"
+                    className="w-full"
+                    required
+                    value={editingExpense.date}
+                    onChange={e => setEditingExpense({...editingExpense, date: e.target.value})}
+                  />
+                </div>
+                <div className="form-group mb-4">
+                  <label>Category</label>
+                  <select 
+                    className="w-full"
+                    value={editingExpense.category} 
+                    onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}
+                  >
+                    {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div className="form-group mb-4">
+                  <label>Amount (BDT)</label>
+                  <input 
+                    type="number" 
+                    className="w-full"
+                    required 
+                    min="1"
+                    value={editingExpense.amount}
+                    onChange={e => setEditingExpense({...editingExpense, amount: e.target.value})}
+                  />
+                </div>
+                <div className="form-group mb-4">
+                  <label>Description</label>
+                  <input 
+                    type="text" 
+                    className="w-full"
+                    required
+                    value={editingExpense.description}
+                    onChange={e => setEditingExpense({...editingExpense, description: e.target.value})}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setEditingExpense(null)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="edit-expense-form" className="btn-primary">{t(language, 'Save Changes')}</button>
             </div>
           </div>
         </div>,

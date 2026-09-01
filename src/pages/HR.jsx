@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, Calendar, DollarSign, Award, Plus, Check, X, Eye, Printer, Download } from 'lucide-react';
+import { Users, Calendar, DollarSign, Award, Plus, Check, X, Eye, Printer, Download, Edit, Trash2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
@@ -8,11 +8,12 @@ import { toast } from 'react-toastify';
 
 const HR = () => {
   const [activeTab, setActiveTab] = useState('Staff');
-  const { staff, attendance, leaves, payrolls, addStaff, markAttendance, addLeaveRequest, updateLeaveStatus, generatePayslip, language } = useStore();
+  const { staff, attendance, leaves, payrolls, addStaff, updateStaff, deleteStaff, markAttendance, addLeaveRequest, updateLeaveStatus, generatePayslip, language } = useStore();
 
   // Modals state
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', role: 'Salesman', baseSalary: '', phone: '', address: '', bankAccount: '', username: '', password: '' });
+  const [editingStaff, setEditingStaff] = useState(null);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [newLeave, setNewLeave] = useState({ staffId: '', type: 'Casual', reason: '', date: new Date().toISOString().split('T')[0] });
@@ -37,6 +38,23 @@ const HR = () => {
     });
     setShowAddStaffModal(false);
     setNewStaff({ name: '', role: 'Salesman', baseSalary: '', phone: '', address: '', bankAccount: '', username: '', password: '' });
+  };
+
+  const handleEditStaff = (e) => {
+    e.preventDefault();
+    updateStaff(editingStaff.id, {
+      ...editingStaff,
+      baseSalary: parseFloat(editingStaff.baseSalary)
+    });
+    setEditingStaff(null);
+    toast.success('Staff updated successfully!');
+  };
+
+  const handleDeleteStaff = (id) => {
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      deleteStaff(id);
+      toast.success('Staff deleted successfully!');
+    }
   };
 
   const handleApplyLeave = (e) => {
@@ -137,9 +155,17 @@ const HR = () => {
                           <td>৳{s.baseSalary}</td>
                           <td>{s.joinDate}</td>
                           <td>
-                            <button className="btn-icon" title="View & Print" onClick={() => setSelectedStaff(s)}>
-                              <Printer size={16} />
-                            </button>
+                            <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
+                              <button className="btn-icon" title="View & Print" onClick={() => setSelectedStaff(s)}>
+                                <Printer size={16} />
+                              </button>
+                              <button className="btn-icon text-info" title="Edit" onClick={() => setEditingStaff(s)}>
+                                <Edit size={16} />
+                              </button>
+                              <button className="btn-icon text-danger" title="Delete" onClick={() => handleDeleteStaff(s.id)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -384,6 +410,67 @@ const HR = () => {
             <div className="drawer-footer">
               <button type="button" className="btn-outline" onClick={() => setShowAddStaffModal(false)}>{t(language, 'Cancel')}</button>
               <button type="submit" form="add-staff-form" className="btn-primary">{t(language, 'Save' || 'Add Staff')}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Staff Drawer */}
+      {editingStaff && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>{t(language, 'Edit Staff')}</h2>
+              <button type="button" className="drawer-close-btn" onClick={() => setEditingStaff(null)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="edit-staff-form" onSubmit={handleEditStaff}>
+                <div className="responsive-grid-2">
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Name</label>
+                    <input required type="text" className="w-full" value={editingStaff.name} onChange={e => setEditingStaff({ ...editingStaff, name: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Role</label>
+                    <select className="w-full" value={editingStaff.role} onChange={e => setEditingStaff({ ...editingStaff, role: e.target.value })}>
+                      <option value="Salesman">Salesman</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Delivery">Delivery</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Base Salary (BDT)</label>
+                    <input required type="number" min="0" className="w-full" value={editingStaff.baseSalary} onChange={e => setEditingStaff({ ...editingStaff, baseSalary: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Phone</label>
+                    <input type="text" className="w-full" value={editingStaff.phone} onChange={e => setEditingStaff({ ...editingStaff, phone: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="text-muted mb-1 block">Address</label>
+                    <input type="text" className="w-full" value={editingStaff.address} onChange={e => setEditingStaff({ ...editingStaff, address: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="text-muted mb-1 block">Bank Account Number</label>
+                    <input type="text" className="w-full" value={editingStaff.bankAccount} onChange={e => setEditingStaff({ ...editingStaff, bankAccount: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Username</label>
+                    <input type="text" className="w-full" value={editingStaff.username} onChange={e => setEditingStaff({ ...editingStaff, username: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="text-muted mb-1 block">Password</label>
+                    <input type="text" className="w-full" placeholder="Leave blank to keep same" value={editingStaff.password} onChange={e => setEditingStaff({ ...editingStaff, password: e.target.value })} />
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setEditingStaff(null)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="edit-staff-form" className="btn-primary">{t(language, 'Save Changes')}</button>
             </div>
           </div>
         </div>,

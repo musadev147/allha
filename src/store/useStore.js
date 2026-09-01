@@ -107,6 +107,7 @@ const useStore = create(
         )
       })),
       clearCart: () => set({ cart: [] }),
+      setCart: (cartItems) => set({ cart: cartItems }),
 
       // INVENTORY LOGIC
       addInventoryItem: (item) => set((state) => ({
@@ -230,6 +231,46 @@ const useStore = create(
         };
       }),
 
+      deleteSale: (saleId) => set((state) => {
+        const saleIndex = state.sales.findIndex(s => s.id === saleId);
+        if (saleIndex === -1) return state;
+        const sale = state.sales[saleIndex];
+        
+        // Reverse inventory
+        const newInventory = [...state.inventory];
+        sale.items.forEach(cartItem => {
+          const invIndex = newInventory.findIndex(i => i.id === cartItem.id);
+          if (invIndex !== -1) {
+            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + cartItem.quantity };
+          }
+        });
+
+        // Reverse Cash/Due
+        let newCash = state.cashBalance;
+        const newCustomers = [...state.customers];
+        if (sale.paymentType === 'Cash' && sale.total > 0) {
+          newCash -= sale.total;
+        } else if (sale.paymentType === 'Baki' && sale.customerId) {
+          const cIndex = newCustomers.findIndex(c => c.id === sale.customerId);
+          if (cIndex !== -1) {
+             newCustomers[cIndex] = { ...newCustomers[cIndex], due: Math.max(0, newCustomers[cIndex].due - sale.total) };
+          }
+        }
+
+        // Remove transaction
+        const newTransactions = (state.accountTransactions || []).filter(tx => 
+          !(tx.description && tx.description.includes(`(${sale.id})`))
+        );
+
+        return {
+          sales: state.sales.filter(s => s.id !== saleId),
+          inventory: newInventory,
+          cashBalance: newCash,
+          customers: newCustomers,
+          accountTransactions: newTransactions
+        };
+      }),
+
       processPurchase: ({ items, supplierId, supplierName, paymentType, total, paidAmount = 0 }) => set((state) => {
         const newInventory = [...state.inventory];
         
@@ -292,6 +333,43 @@ const useStore = create(
           purchases: [purchaseRecord, ...state.purchases]
         };
       }),
+      deletePurchase: (purchaseId) => set((state) => {
+        const purchaseIndex = state.purchases.findIndex(p => p.id === purchaseId);
+        if (purchaseIndex === -1) return state;
+        const purchase = state.purchases[purchaseIndex];
+        
+        // Reverse inventory
+        const newInventory = [...state.inventory];
+        purchase.items.forEach(item => {
+          const invIndex = newInventory.findIndex(i => i.name.toLowerCase() === item.name.toLowerCase());
+          if (invIndex !== -1) {
+            newInventory[invIndex] = { ...newInventory[invIndex], stock: Math.max(0, newInventory[invIndex].stock - item.quantity) };
+          }
+        });
+
+        // Reverse Supplier Due
+        const newSuppliers = [...state.suppliers];
+        const dueAmount = purchase.paymentType === 'Baki' ? (purchase.total - purchase.paidAmount) : 0;
+        if (dueAmount > 0) {
+           const supIndex = newSuppliers.findIndex(s => s.id === purchase.supplierId);
+           if (supIndex !== -1) {
+             newSuppliers[supIndex] = { ...newSuppliers[supIndex], due: Math.max(0, newSuppliers[supIndex].due - dueAmount) };
+           }
+        }
+
+        // Reverse Cash
+        let newCash = state.cashBalance;
+        if (purchase.paidAmount > 0) {
+          newCash += purchase.paidAmount;
+        }
+        
+        return {
+          purchases: state.purchases.filter(p => p.id !== purchaseId),
+          inventory: newInventory,
+          suppliers: newSuppliers,
+          cashBalance: newCash
+        };
+      }),
 
       processReturn: ({ returnType, productId, quantity, reason }) => set((state) => {
         const newInventory = [...state.inventory];
@@ -321,6 +399,27 @@ const useStore = create(
           returns: [returnRecord, ...state.returns]
         };
       }),
+      deleteReturn: (returnId) => set((state) => {
+        const returnRecordIndex = state.returns.findIndex(r => r.id === returnId);
+        if (returnRecordIndex === -1) return state;
+        const returnRecord = state.returns[returnRecordIndex];
+        
+        const newInventory = [...state.inventory];
+        const invIndex = newInventory.findIndex(i => i.id === returnRecord.productId);
+        if (invIndex !== -1) {
+          if (returnRecord.returnType === 'Customer') {
+             // reverse the customer return (subtract stock)
+             newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock - returnRecord.quantity };
+          } else {
+             // reverse supplier return (add stock back)
+             newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + returnRecord.quantity };
+          }
+        }
+        return {
+          returns: state.returns.filter(r => r.id !== returnId),
+          inventory: newInventory
+        };
+      }),
 
       payCustomerDue: (customerId, amount) => set((state) => ({
         customers: state.customers.map(c => c.id === customerId ? { ...c, due: Math.max(0, c.due - amount) } : c)
@@ -333,6 +432,12 @@ const useStore = create(
       addCustomer: (customerData) => set((state) => ({
         customers: [...state.customers, { id: 'C' + Date.now(), due: 0, ...customerData }]
       })),
+      updateCustomer: (customerId, updates) => set((state) => ({
+        customers: state.customers.map(c => c.id === customerId ? { ...c, ...updates } : c)
+      })),
+      deleteCustomer: (customerId) => set((state) => ({
+        customers: state.customers.filter(c => c.id !== customerId)
+      })),
 
       addSupplier: (supplierData) => set((state) => ({
         suppliers: [...state.suppliers, { id: 'SUP' + Date.now(), due: 0, ...supplierData }]
@@ -340,6 +445,9 @@ const useStore = create(
 
       updateSupplier: (supplierId, updates) => set((state) => ({
         suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, ...updates } : s)
+      })),
+      deleteSupplier: (supplierId) => set((state) => ({
+        suppliers: state.suppliers.filter(s => s.id !== supplierId)
       })),
 
       addExpense: (expense) => set((state) => {
@@ -351,10 +459,33 @@ const useStore = create(
           expenses: [expenseEntry, ...state.expenses]
         };
       }),
+      updateExpense: (expenseId, updates) => set((state) => {
+        const expense = state.expenses.find(e => e.id === expenseId);
+        if (!expense) return state;
+        const diff = (updates.amount || expense.amount) - expense.amount;
+        return {
+          cashBalance: state.cashBalance - diff, // If new amount is higher, balance drops more
+          expenses: state.expenses.map(e => e.id === expenseId ? { ...e, ...updates } : e)
+        };
+      }),
+      deleteExpense: (expenseId) => set((state) => {
+        const expense = state.expenses.find(e => e.id === expenseId);
+        if (!expense) return state;
+        return {
+          cashBalance: state.cashBalance + expense.amount,
+          expenses: state.expenses.filter(e => e.id !== expenseId)
+        };
+      }),
 
       // HR ACTIONS
       addStaff: (staffData) => set((state) => ({
         staff: [...state.staff, { id: 'ST' + Date.now(), ...staffData }]
+      })),
+      updateStaff: (staffId, updates) => set((state) => ({
+        staff: state.staff.map(s => s.id === staffId ? { ...s, ...updates } : s)
+      })),
+      deleteStaff: (staffId) => set((state) => ({
+        staff: state.staff.filter(s => s.id !== staffId)
       })),
       
       markAttendance: (staffId, date, status) => set((state) => {

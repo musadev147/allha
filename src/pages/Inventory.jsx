@@ -203,7 +203,7 @@ const Inventory = () => {
                       <button className="btn-icon" title="Print Barcode" onClick={() => handlePrintBarcode(item)}>
                         <Printer size={16} />
                       </button>
-                      <button className="btn-icon text-info" title="Edit">
+                      <button className="btn-icon text-info" title="Edit" onClick={() => setEditingItem(item)}>
                         <Edit size={16} />
                       </button>
                       <button className="btn-icon text-danger" title="Delete" onClick={() => deleteInventoryItem(item.id)}>
@@ -385,6 +385,69 @@ const Inventory = () => {
             <div className="drawer-footer">
               <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>{t(language, 'Cancel')}</button>
               <button type="submit" form="add-product-form" className="btn-primary flex-align-gap"><Plus size={18} /> {t(language, 'Save')}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Product Drawer */}
+      {editingItem && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>{t(language, 'Edit Item')}</h2>
+              <button className="drawer-close-btn" onClick={() => setEditingItem(null)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="edit-product-form" onSubmit={handleEditSubmit}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'ID/Barcode' || 'Product ID / Barcode')} *</label>
+                    <input type="text" className="w-full" value={editingItem.id} disabled style={{ backgroundColor: '#f3f4f6' }} />
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Item Name')} *</label>
+                    <input type="text" className="w-full" value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} required />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Category')}</label>
+                      <input type="text" className="w-full" value={editingItem.category} onChange={e => setEditingItem({...editingItem, category: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Variant' || 'Variant')}</label>
+                      <input type="text" className="w-full" value={editingItem.variant || ''} onChange={e => setEditingItem({...editingItem, variant: e.target.value})} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Unit')}</label>
+                      <select className="w-full" value={editingItem.unit} onChange={e => setEditingItem({...editingItem, unit: e.target.value})}>
+                        <option value="Bag">Bag</option>
+                        <option value="Bottle">Bottle</option>
+                        <option value="Packet">Packet</option>
+                        <option value="Pcs">Pcs</option>
+                        <option value="Kg">Kg</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-muted text-sm block mb-1">{t(language, 'Stock')}</label>
+                      <input type="number" className="w-full" min="0" value={editingItem.stock} onChange={e => setEditingItem({...editingItem, stock: parseInt(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-muted text-sm block mb-1">{t(language, 'Price')} (BDT)</label>
+                    <input type="number" className="w-full" min="0" value={editingItem.price} onChange={e => setEditingItem({...editingItem, price: parseFloat(e.target.value) || 0})} />
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setEditingItem(null)}>{t(language, 'Cancel')}</button>
+              <button type="submit" form="edit-product-form" className="btn-primary flex-align-gap"><Edit size={18} /> {t(language, 'Save Changes')}</button>
             </div>
           </div>
         </div>,

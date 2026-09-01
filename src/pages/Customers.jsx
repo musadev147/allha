@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, MessageSquare, Phone, Printer, Eye, Download, Plus } from 'lucide-react';
+import { Search, MessageSquare, Phone, Printer, Eye, Download, Plus, Edit, Trash2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
 import { toast } from 'react-toastify';
 
 const Customers = () => {
-  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements, language, addCustomer } = useStore();
+  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements, language, addCustomer, updateCustomer, deleteCustomer, updateSupplier, deleteSupplier } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('Customer'); // Customer or Supplier
   const [smsModal, setSmsModal] = useState({ show: false, target: null, message: '' });
   const [settleModal, setSettleModal] = useState({ show: false, target: null, amount: '', date: '' });
   const [selectedPerson, setSelectedPerson] = useState(null);
 
-  // Add Customer Modal State
+  // Add/Edit Customer Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingPerson, setEditingPerson] = useState(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', location: '', due: '', notes: '' });
 
   // Compute Ledger for selected person
@@ -111,6 +112,33 @@ const Customers = () => {
     toast.success('Customer added successfully!');
   };
 
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (!editingPerson.name) {
+      alert("Name is required");
+      return;
+    }
+    const due = parseFloat(editingPerson.due) || 0;
+    if (activeTab === 'Customer') {
+      updateCustomer(editingPerson.id, { ...editingPerson, due });
+    } else {
+      updateSupplier(editingPerson.id, { ...editingPerson, due });
+    }
+    setEditingPerson(null);
+    toast.success('Updated successfully!');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
+      if (activeTab === 'Customer') {
+        deleteCustomer(id);
+      } else {
+        deleteSupplier(id);
+      }
+      toast.success('Deleted successfully!');
+    }
+  };
+
   return (
     <div className="customers-page animate-fade-in">
       <div className="page-header">
@@ -203,6 +231,12 @@ const Customers = () => {
                             <MessageSquare size={14} /> SMS
                           </button>
                         )}
+                        <button className="btn-icon text-info" title="Edit" onClick={() => setEditingPerson({...person})}>
+                          <Edit size={16} />
+                        </button>
+                        <button className="btn-icon text-danger" title="Delete" onClick={() => handleDelete(person.id)}>
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -381,6 +415,68 @@ const Customers = () => {
             <div className="drawer-footer">
               <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
               <button type="submit" form="add-customer-form" className="btn-primary">Add Customer</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Person Drawer */}
+      {editingPerson && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>Edit {activeTab === 'Customer' ? 'Customer' : 'Supplier'}</h2>
+              <button type="button" className="drawer-close-btn" onClick={() => setEditingPerson(null)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="edit-person-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Name *</label>
+                  <input 
+                    type="text" 
+                    value={editingPerson.name} 
+                    onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
+                    required 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                  <input 
+                    type="text" 
+                    value={editingPerson.phone || ''} 
+                    onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                {activeTab === 'Customer' && (
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                    <input 
+                      type="text" 
+                      value={editingPerson.location || ''} 
+                      onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
+                  <input 
+                    type="number" 
+                    value={editingPerson.due} 
+                    onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
+              <button type="submit" form="edit-person-form" className="btn-primary">Save Changes</button>
             </div>
           </div>
         </div>,

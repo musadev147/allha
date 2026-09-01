@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import useStore from '../store/useStore';
-import { Search, Plus, Minus, Trash2, Gift, Database, List, Printer, Eye, Download, FilePlus } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Gift, Database, List, Printer, Eye, Download, FilePlus, Edit } from 'lucide-react';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
 import { toast } from 'react-toastify';
+import Expenses from './Expenses';
 import './POS.css';
 
 const POS = () => {
-  const { cart, inventory, staff, user, addToCart, removeFromCart, updateCartItem, clearCart, loadDummyData, processSale, sales, language } = useStore();
+  const { cart, inventory, staff, user, addToCart, removeFromCart, updateCartItem, clearCart, setCart, loadDummyData, processSale, deleteSale, sales, customers, language } = useStore();
   const [activeTab, setActiveTab] = useState('New'); // 'New' or 'History'
   const [barcodeInput, setBarcodeInput] = useState('');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', location: '' });
@@ -16,6 +17,7 @@ const POS = () => {
   const [invoiceDiscount, setInvoiceDiscount] = useState(0);
   const [selectedSalesman, setSelectedSalesman] = useState(user?.id || 'Admin');
   const [completedSale, setCompletedSale] = useState(null);
+  const [editingSaleId, setEditingSaleId] = useState(null);
   
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -76,13 +78,40 @@ const POS = () => {
       salesman: salesmanObj
     };
     
+    if (editingSaleId) {
+      deleteSale(editingSaleId);
+      setEditingSaleId(null);
+    }
+    
     processSale(saleData);
     setCompletedSale({ ...saleData, subtotal, total, date: new Date().toISOString(), invoiceId: 'INV' + Date.now() });
     
     clearCart();
     setCustomerInfo({ name: '', phone: '', location: '' });
     setInvoiceDiscount(0);
-    toast.success('Sale processed successfully!');
+    toast.success(editingSaleId ? 'Sale updated successfully!' : 'Sale processed successfully!');
+  };
+
+  const handleEditSale = (sale) => {
+    setCart(sale.items);
+    const customer = customers.find(c => c.id === sale.customerId);
+    setCustomerInfo({
+       name: sale.customerName !== 'Walk-in Customer' ? sale.customerName : '',
+       phone: customer?.phone || '',
+       location: customer?.location || ''
+    });
+    setPaymentType(sale.paymentType);
+    setInvoiceDiscount(sale.invoiceDiscount || 0);
+    setSelectedSalesman(sale.salesmanId || user?.id || 'Admin');
+    setEditingSaleId(sale.id);
+    setActiveTab('New');
+  };
+
+  const handleDeleteSale = (saleId) => {
+    if (window.confirm('Are you sure you want to delete this sale? This action will reverse stock and cash balances.')) {
+      deleteSale(saleId);
+      toast.success('Sale deleted successfully!');
+    }
   };
 
   return (
@@ -105,6 +134,14 @@ const POS = () => {
           >
             <List size={16} /> {t(language, 'Sales History')}
           </button>
+          <button 
+            type="button"
+            className={activeTab === 'Expense' ? 'active' : ''}
+            onClick={() => setActiveTab('Expense')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+          >
+            <Database size={16} /> {t(language, 'Daily Expense')}
+          </button>
         </div>
       </div>
 
@@ -112,7 +149,7 @@ const POS = () => {
       <div className="pos-container animate-fade-in">
         <div className="pos-left glass">
           <div className="pos-header">
-            <h2>{t(language, 'Point of Sale')}</h2>
+            <h2>{editingSaleId ? t(language, 'Edit Sale') : t(language, 'Point of Sale')}</h2>
           <form onSubmit={handleBarcodeSubmit} className="barcode-form">
             <Search size={18} className="text-muted" />
             <input 
@@ -294,10 +331,20 @@ const POS = () => {
           </div>
         </div>
 
-        <div className="checkout-actions">
+        <div className="checkout-actions" style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
           <button className="btn-primary checkout-btn" onClick={handleCheckout} disabled={cart.length === 0}>
-            {t(language, 'Process Sale & Print')}
+            {editingSaleId ? t(language, 'Update Sale & Print') : t(language, 'Process Sale & Print')}
           </button>
+          {editingSaleId && (
+            <button className="btn-outline text-danger checkout-btn" onClick={() => {
+               setEditingSaleId(null);
+               clearCart();
+               setCustomerInfo({ name: '', phone: '', location: '' });
+               setInvoiceDiscount(0);
+            }}>
+              {t(language, 'Cancel Edit')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -452,7 +499,13 @@ const POS = () => {
                       <button className="btn-icon" title="View & Print" onClick={() => setSelectedInvoice(s)}>
                         <Eye size={16} />
                       </button>
-</div>
+                      <button className="btn-icon text-info" title="Edit Sale" onClick={() => handleEditSale(s)}>
+                        <Edit size={16} />
+                      </button>
+                      <button className="btn-icon text-danger" title="Delete Sale" onClick={() => handleDeleteSale(s.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -587,6 +640,12 @@ const POS = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {activeTab === 'Expense' && (
+        <div className="animate-fade-in" style={{ padding: '0 0.5rem' }}>
+          <Expenses />
+        </div>
       )}
 
     </div>

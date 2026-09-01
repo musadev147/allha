@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Printer, Eye, Download, Plus, Phone } from 'lucide-react';
+import { Search, Printer, Eye, Download, Plus, Phone, Edit, Trash2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { toast } from 'react-toastify';
 
 const Suppliers = () => {
-  const { suppliers, addSupplier, purchases, settlements } = useStore();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, purchases, settlements } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPerson, setSelectedPerson] = useState(null);
 
@@ -38,8 +38,9 @@ const Suppliers = () => {
   const totalPurchased = selectedPersonTransactions.filter(t => t.type === 'Purchase').reduce((sum, t) => sum + t.amount, 0);
   const totalPaid = selectedPersonTransactions.filter(t => t.type === 'Payment').reduce((sum, t) => sum + t.amount, 0);
   
-  // Add Supplier Modal State
+  // Add/Edit Supplier Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingPerson, setEditingPerson] = useState(null);
   const [newSupplier, setNewSupplier] = useState({ name: '', company: '', phone: '', email: '', location: '', due: '', notes: '' });
 
   const filteredList = suppliers.filter(
@@ -63,6 +64,25 @@ const Suppliers = () => {
     setNewSupplier({ name: '', company: '', phone: '', email: '', location: '', due: '', notes: '' });
     setShowAddModal(false);
     toast.success('Supplier added successfully!');
+  };
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (!editingPerson.name) {
+      alert("Name is required");
+      return;
+    }
+    const due = parseFloat(editingPerson.due) || 0;
+    updateSupplier(editingPerson.id, { ...editingPerson, due });
+    setEditingPerson(null);
+    toast.success('Updated successfully!');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
+      deleteSupplier(id);
+      toast.success('Deleted successfully!');
+    }
   };
 
   return (
@@ -131,6 +151,12 @@ const Suppliers = () => {
                         <div className="action-buttons flex-align-gap" style={{flexWrap:'nowrap'}}>
                           <button className="btn-icon" title="View & Print" onClick={() => setSelectedPerson(person)}>
                             <Printer size={16} />
+                          </button>
+                          <button className="btn-icon text-info" title="Edit" onClick={() => setEditingPerson({...person})}>
+                            <Edit size={16} />
+                          </button>
+                          <button className="btn-icon text-danger" title="Delete" onClick={() => handleDelete(person.id)}>
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </td>
@@ -231,6 +257,66 @@ const Suppliers = () => {
             <div className="drawer-footer">
               <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
               <button type="submit" form="add-supplier-form" className="btn-primary">Add Supplier</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Supplier Drawer */}
+      {editingPerson && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container">
+            <div className="drawer-header">
+              <h2>Edit Supplier</h2>
+              <button type="button" className="drawer-close-btn" onClick={() => setEditingPerson(null)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <form id="edit-supplier-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Supplier Name *</label>
+                  <input 
+                    type="text" 
+                    value={editingPerson.name} 
+                    onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
+                    required 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                  <input 
+                    type="text" 
+                    value={editingPerson.phone || ''} 
+                    onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                  <input 
+                    type="text" 
+                    value={editingPerson.location || ''} 
+                    onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
+                  <input 
+                    type="number" 
+                    value={editingPerson.due} 
+                    onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </form>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
+              <button type="submit" form="edit-supplier-form" className="btn-primary">Save Changes</button>
             </div>
           </div>
         </div>,
