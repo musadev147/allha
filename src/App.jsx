@@ -60,6 +60,22 @@ function App() {
       document.body.classList.remove('light-mode');
       document.body.classList.add('dark-mode');
     }
+
+    // Global click listener for closing modals/drawers
+    const handleOverlayClick = (e) => {
+      if (e.target.classList.contains('drawer-overlay') || e.target.classList.contains('modal-overlay')) {
+        const closeBtn = e.target.querySelector('.drawer-close-btn, .modal-close-btn');
+        if (closeBtn) {
+          closeBtn.click();
+        }
+      }
+    };
+    
+    document.addEventListener('mousedown', handleOverlayClick);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleOverlayClick);
+    };
   }, [theme, themeGradient]);
 
   return (
