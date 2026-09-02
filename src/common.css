@@ -256,7 +256,8 @@ body:not(.light-mode) .data-table th {
 }
 
 .modal-content {
-  background-color: var(--bg-card);
+  background-color: var(--bg-main);
+  background-image: var(--bg-ambient);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   padding: 2.5rem;
@@ -317,7 +318,8 @@ body:not(.light-mode) .data-table th {
   right: 0;
   width: 100%;
   max-width: 600px;
-  background-color: var(--bg-card);
+  background-color: var(--bg-main);
+  background-image: var(--bg-ambient);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
