@@ -14,11 +14,15 @@ import {
   RefreshCcw,
   Sun,
   Moon,
-  MoreVertical,
+  List,
   MessageSquare,
   Wifi,
   WifiOff,
-  ArrowLeft
+  ArrowLeft,
+  Landmark,
+  Calendar,
+  Menu,
+  X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import './Layout.css';
@@ -27,6 +31,7 @@ import logo from '../assets/allah_dan.jpeg';
 const Layout = () => {
   const { user, logout, theme, toggleTheme, language, setLanguage } = useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,11 +55,61 @@ const Layout = () => {
     navigate('/login');
   };
 
+  const allServices = [
+    { name: language === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: language === 'bn' ? 'বিক্রয়' : 'POS', path: '/pos', icon: ShoppingCart },
+    { name: language === 'bn' ? 'স্টক' : 'Inventory', path: '/inventory', icon: Package },
+    { name: language === 'bn' ? 'ক্রয়' : 'Purchases', path: '/purchases', icon: Truck },
+    { name: language === 'bn' ? 'রিটার্ন' : 'Returns', path: '/returns', icon: RefreshCcw },
+    { name: language === 'bn' ? 'সাপ্লায়ার' : 'Suppliers', path: '/suppliers', icon: Users },
+    { name: language === 'bn' ? 'কাস্টমার' : 'Customers', path: '/customers', icon: Users },
+    { name: language === 'bn' ? 'খরচ' : 'Expenses', path: '/expenses', icon: DollarSign },
+  ];
 
+  const adminServices = user?.role === 'Admin' ? [
+    { name: language === 'bn' ? 'হিসাব' : 'Accounts', icon: Landmark, path: '/accounts' },
+    { name: language === 'bn' ? 'রিপোর্ট' : 'Reports', icon: FileText, path: '/reports' },
+    { name: language === 'bn' ? 'কর্মী' : 'HR', icon: Calendar, path: '/hr' },
+    { name: language === 'bn' ? 'এসএমএস' : 'SMS', icon: MessageSquare, path: '/sms' },
+    { name: language === 'bn' ? 'সেটিংস' : 'Settings', icon: Settings, path: '/settings' }
+  ] : [];
+
+  const navItems = [...allServices, ...adminServices];
 
   return (
-    <div className={`app-container ${theme === 'dark' ? 'dark-mode' : ''}`} style={{ display: 'block', minHeight: '100vh' }}>
-      <main className="main-content" style={{ width: '100%', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div className={`app-container ${theme === 'dark' ? 'dark-mode' : ''}`} style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+      {/* Sidebar */}
+      <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>{language === 'bn' ? 'মেনু' : 'Menu'}</h2>
+          
+          <button className="btn-icon hide-on-mobile" onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} title="Toggle Sidebar">
+            <List size={20} />
+          </button>
+
+          {isMobileMenuOpen && (
+            <button className="btn-icon mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(false)}>
+              <X size={20} />
+            </button>
+          )}
+        </div>
+        <nav className={`sidebar-nav ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+          {navItems.map((item, index) => (
+            <NavLink 
+              key={index}
+              to={item.path}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              title={isSidebarCollapsed ? item.name : undefined}
+            >
+              <item.icon size={18} />
+              <span>{item.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+
+      <main className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', width: '0' }}>
         <header className="topbar glass" style={{ 
           height: '70px', 
           borderBottom: '1px solid rgba(0,0,0,0.05)', 
@@ -70,6 +125,9 @@ const Layout = () => {
         }}>
           {/* Left Side: Brand Logo */}
           <div className="topbar-brand flex-align-gap" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button className="btn-icon mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: 'var(--bg-input)' }}>
+              <Menu size={20} />
+            </button>
             {!isDashboard && (
               <button 
                 onClick={() => navigate(-1)} 
