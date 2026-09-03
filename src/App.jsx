@@ -41,6 +41,14 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 function App() {
   const theme = useStore((state) => state.theme);
   const themeGradient = useStore((state) => state.themeGradient) || 'theme-sky';
+  const user = useStore((state) => state.user);
+  const hydrate = useStore((state) => state.hydrate);
+
+  // A reload keeps the session but not the data, so pull everything back from
+  // the server once the persisted user is known.
+  useEffect(() => {
+    if (user) hydrate();
+  }, [user, hydrate]);
 
   useEffect(() => {
     // Clear old theme classes

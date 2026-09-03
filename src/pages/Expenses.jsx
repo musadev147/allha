@@ -2,17 +2,26 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, PieChart, DollarSign, Printer, Eye, Download, Edit, Trash2 } from 'lucide-react';
 
+import { toast } from 'react-toastify';
 import useStore from '../store/useStore';
 import { downloadAsPDF } from '../utils/pdfGenerator';
 import { t } from '../utils/i18n';
 
-const EXPENSE_CATEGORIES = ['Shop Rent', 'Electricity Bill', 'Transport', 'Staff Cost', 'Others'];
+const DEFAULT_CATEGORIES = ['Shop Rent', 'Electricity Bill', 'Transport', 'Staff Cost', 'Marketing', 'Others'];
 
 const Expenses = () => {
-  const { expenses, addExpense, updateExpense, deleteExpense, language } = useStore();
+  const { expenses, expenseCategories, addExpense, updateExpense, deleteExpense, language } = useStore();
   const [showModal, setShowModal] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
-  const [newExpense, setNewExpense] = useState({ date: todayStr, category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
+
+  // Dynamic Categories from backend and store
+  const dynamicCategories = Array.from(new Set([
+    ...DEFAULT_CATEGORIES,
+    ...(expenseCategories || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean),
+    ...expenses.map(e => e.category).filter(Boolean)
+  ]));
+
+  const [newExpense, setNewExpense] = useState({ date: todayStr, category: dynamicCategories[0] || 'Shop Rent', amount: '', description: '' });
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [editingExpense, setEditingExpense] = useState(null);
 
@@ -20,23 +29,49 @@ const Expenses = () => {
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().substring(0, 7));
   const totalDailyExpense = expenses.filter(e => e.date === todayStr).reduce((acc, curr) => acc + curr.amount, 0);
 
-  const handleAddExpense = (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
-    addExpense({
+    const parsedAmount = parseFloat(newExpense.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error(language === 'bn' ? 'সঠিক খরচের পরিমাণ লিখুন (০-এর বেশি)' : 'Please enter a valid expense amount greater than 0');
+      return;
+    }
+    const finalDescription = (newExpense.description || '').trim() || newExpense.category || 'Shop Expense';
+    
+    const res = await addExpense({
       ...newExpense,
-      amount: parseFloat(newExpense.amount)
+      amount: parsedAmount,
+      description: finalDescription,
+      date: newExpense.date || todayStr,
     });
-    setShowModal(false);
-    setNewExpense({ date: todayStr, category: EXPENSE_CATEGORIES[0], amount: '', description: '' });
+
+    if (res?.ok) {
+      setShowModal(false);
+      setNewExpense({ date: todayStr, category: dynamicCategories[0] || 'Shop Rent', amount: '', description: '' });
+      toast.success(language === 'bn' ? 'খরচ সফলভাবে যুক্ত হয়েছে' : 'Expense recorded successfully');
+    }
   };
 
-  const handleEditExpense = (e) => {
+  const handleEditExpense = async (e) => {
     e.preventDefault();
-    updateExpense(editingExpense.id, {
+    const parsedAmount = parseFloat(editingExpense.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error(language === 'bn' ? 'সঠিক খরচের পরিমাণ লিখুন (০-এর বেশি)' : 'Please enter a valid expense amount greater than 0');
+      return;
+    }
+    const finalDescription = (editingExpense.description || '').trim() || editingExpense.category || 'Shop Expense';
+
+    const res = await updateExpense(editingExpense.id, {
       ...editingExpense,
-      amount: parseFloat(editingExpense.amount)
+      amount: parsedAmount,
+      description: finalDescription,
+      date: editingExpense.date || todayStr,
     });
-    setEditingExpense(null);
+
+    if (res?.ok) {
+      setEditingExpense(null);
+      toast.success(language === 'bn' ? 'খরচ সফলভাবে আপডেট হয়েছে' : 'Expense updated successfully');
+    }
   };
 
   const handleDeleteExpense = (id) => {
@@ -48,14 +83,14 @@ const Expenses = () => {
   // Monthly Report Calculations
   const monthlyExpenses = expenses.filter(e => e.date && e.date.startsWith(reportMonth));
   const totalMonthlyExpense = monthlyExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const categoryTotals = EXPENSE_CATEGORIES.map(cat => ({
+  const categoryTotals = dynamicCategories.map(cat => ({
     category: cat,
     amount: monthlyExpenses.filter(e => e.category === cat).reduce((acc, curr) => acc + curr.amount, 0)
   })).filter(c => c.amount > 0);
 
-  // Add dynamically added categories like 'Staff Cost' if they exist in data but not in EXPENSE_CATEGORIES constant
-  const otherCategories = [...new Set(monthlyExpenses.map(e => e.category))].filter(cat => !EXPENSE_CATEGORIES.includes(cat));
-  otherCategories.forEach(cat => {
+  // Add dynamically added categories if they exist in data but not in dynamicCategories list
+  const extraCategories = [...new Set(monthlyExpenses.map(e => e.category))].filter(cat => !dynamicCategories.includes(cat));
+  extraCategories.forEach(cat => {
     categoryTotals.push({
       category: cat,
       amount: monthlyExpenses.filter(e => e.category === cat).reduce((acc, curr) => acc + curr.amount, 0)
@@ -202,8 +237,8 @@ const Expenses = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="add-expense-form" onSubmit={handleAddExpense}>
+            <form id="add-expense-form" onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div className="form-group mb-4 mt-4">
                   <label>Date</label>
                   <input 
@@ -221,7 +256,7 @@ const Expenses = () => {
                     value={newExpense.category} 
                     onChange={e => setNewExpense({...newExpense, category: e.target.value})}
                   >
-                    {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
                 <div className="form-group mb-4">
@@ -236,21 +271,21 @@ const Expenses = () => {
                   />
                 </div>
                 <div className="form-group mb-4">
-                  <label>Description</label>
+                  <label>Description (Optional)</label>
                   <input 
                     type="text" 
                     className="w-full"
-                    required
+                    placeholder={language === 'bn' ? 'বিবরণ (ঐচ্ছিক)' : 'e.g. Monthly shop rent'}
                     value={newExpense.description}
                     onChange={e => setNewExpense({...newExpense, description: e.target.value})}
                   />
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowModal(false)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="add-expense-form" className="btn-primary">{t(language, 'Save')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowModal(false)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -266,8 +301,8 @@ const Expenses = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="edit-expense-form" onSubmit={handleEditExpense}>
+            <form id="edit-expense-form" onSubmit={handleEditExpense} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div className="form-group mb-4 mt-4">
                   <label>Date</label>
                   <input 
@@ -285,7 +320,7 @@ const Expenses = () => {
                     value={editingExpense.category} 
                     onChange={e => setEditingExpense({...editingExpense, category: e.target.value})}
                   >
-                    {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    {dynamicCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
                 <div className="form-group mb-4">
@@ -300,21 +335,21 @@ const Expenses = () => {
                   />
                 </div>
                 <div className="form-group mb-4">
-                  <label>Description</label>
+                  <label>Description (Optional)</label>
                   <input 
                     type="text" 
                     className="w-full"
-                    required
+                    placeholder={language === 'bn' ? 'বিবরণ (ঐচ্ছিক)' : 'e.g. Monthly shop rent'}
                     value={editingExpense.description}
                     onChange={e => setEditingExpense({...editingExpense, description: e.target.value})}
                   />
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setEditingExpense(null)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="edit-expense-form" className="btn-primary">{t(language, 'Save Changes')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setEditingExpense(null)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save Changes')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

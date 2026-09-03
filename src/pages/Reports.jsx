@@ -196,7 +196,7 @@ const Reports = () => {
           )}
           {sales.length === 0 && (
             <button className="btn-secondary flex-align-gap" onClick={loadDummyData}>
-              <Database size={18} /> Load Dummy Data
+              <Database size={18} /> {language === 'bn' ? 'ডাটা সিঙ্ক করুন' : 'Sync Report Data'}
             </button>
           )}
           <button className="btn-primary flex-align-gap" onClick={() => window.print()}>

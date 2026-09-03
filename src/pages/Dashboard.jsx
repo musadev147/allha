@@ -4,23 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const mockChartData = [
-  { name: 'Mon', sales: 12000, profit: 4000 },
-  { name: 'Tue', sales: 19000, profit: 6000 },
-  { name: 'Wed', sales: 15000, profit: 5500 },
-  { name: 'Thu', sales: 22000, profit: 7800 },
-  { name: 'Fri', sales: 28000, profit: 9000 },
-  { name: 'Sat', sales: 35000, profit: 12000 },
-  { name: 'Sun', sales: 24500, profit: 8200 },
-];
-
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  const { user, sales, expenses, inventory, customers, suppliers, purchases, language } = useStore();
+  const { user, sales, expenses, inventory, customers, suppliers, purchases, language, dashboardSummary } = useStore();
   const isAdmin = user?.role === 'Admin';
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [chartTimeframe, setChartTimeframe] = useState('Weekly');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -104,6 +95,59 @@ const Dashboard = () => {
   ] : [];
 
   const allServices = [...bkashServices, ...adminServices];
+
+  // Dynamic Chart Data Calculation (Zero Mock Data)
+  const computedWeeklyChartData = [];
+  const todayDate = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(todayDate);
+    d.setDate(todayDate.getDate() - i);
+    const dStr = d.toISOString().split('T')[0];
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const daySales = (sales || [])
+      .filter(s => s.date && s.date.startsWith(dStr))
+      .reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    const dayExpenses = (expenses || [])
+      .filter(e => e.date && e.date.startsWith(dStr))
+      .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+    computedWeeklyChartData.push({
+      name: dayName,
+      date: dStr,
+      sales: daySales,
+      profit: daySales - dayExpenses
+    });
+  }
+
+  const computedMonthlyChartData = [];
+  for (let i = 3; i >= 0; i--) {
+    const startD = new Date(todayDate);
+    startD.setDate(todayDate.getDate() - (i * 7 + 6));
+    const endD = new Date(todayDate);
+    endD.setDate(todayDate.getDate() - (i * 7));
+    const periodSales = (sales || [])
+      .filter(s => {
+        if (!s.date) return false;
+        const sDate = s.date.split('T')[0];
+        return sDate >= startD.toISOString().split('T')[0] && sDate <= endD.toISOString().split('T')[0];
+      })
+      .reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    const periodExpenses = (expenses || [])
+      .filter(e => {
+        if (!e.date) return false;
+        const eDate = e.date.split('T')[0];
+        return eDate >= startD.toISOString().split('T')[0] && eDate <= endD.toISOString().split('T')[0];
+      })
+      .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+    computedMonthlyChartData.push({
+      name: `Week ${4 - i}`,
+      sales: periodSales,
+      profit: periodSales - periodExpenses
+    });
+  }
+
+  const activeChartData = chartTimeframe === 'Weekly' 
+    ? (dashboardSummary?.chartData && dashboardSummary.chartData.length > 0 ? dashboardSummary.chartData : computedWeeklyChartData)
+    : computedMonthlyChartData;
 
   return (
     <div className="dashboard-page animate-fade-in" style={{ padding: '0.5rem' }}>
@@ -280,17 +324,17 @@ const Dashboard = () => {
         <div className="card" style={{ gridColumn: '1 / -1' }}>
           <div className="flex-align-gap" style={{ justifyContent: 'space-between', marginBottom: '1.5rem' }}>
             <div>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: '600' }}>Sales Analytics</h3>
-              <p className="text-muted text-sm mt-1">Revenue and Profit over the last 7 days</p>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: '600' }}>{language === 'bn' ? 'বিক্রয় অ্যানালিটিক্স' : 'Sales Analytics'}</h3>
+              <p className="text-muted text-sm mt-1">{chartTimeframe === 'Weekly' ? (language === 'bn' ? 'গত ৭ দিনের আয় এবং লাভ' : 'Revenue and Profit over the last 7 days') : (language === 'bn' ? 'গত ৪ সপ্তাহের আয় এবং লাভ' : 'Revenue and Profit over the last 4 weeks')}</p>
             </div>
             <div className="segmented-control">
-              <button className="active">Weekly</button>
-              <button>Monthly</button>
+              <button className={chartTimeframe === 'Weekly' ? 'active' : ''} onClick={() => setChartTimeframe('Weekly')}>Weekly</button>
+              <button className={chartTimeframe === 'Monthly' ? 'active' : ''} onClick={() => setChartTimeframe('Monthly')}>Monthly</button>
             </div>
           </div>
           <div style={{ width: '100%', height: 350 }}>
             <ResponsiveContainer>
-              <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4} />

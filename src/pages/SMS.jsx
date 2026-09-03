@@ -4,7 +4,7 @@ import { Send, MessageSquare, Users, Search, ShoppingCart } from 'lucide-react';
 import { t } from '../utils/i18n';
 
 const SMS = () => {
-  const { customers, user, smsBalance, purchaseSms, language } = useStore();
+  const { customers, user, smsBalance, purchaseSms, sendSms, language } = useStore();
   const [activeTab, setActiveTab] = useState('Send');
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [message, setMessage] = useState('');
@@ -42,7 +42,7 @@ const SMS = () => {
     }
   };
 
-  const handleSendSMS = (e) => {
+  const handleSendSMS = async (e) => {
     e.preventDefault();
     if (selectedCustomers.length === 0) {
       alert('Please select at least one customer.');
@@ -53,15 +53,14 @@ const SMS = () => {
       return;
     }
 
-    // Mock sending SMS
     setStatus('Sending SMS to ' + selectedCustomers.length + ' customers...');
-    
-    setTimeout(() => {
-      setStatus('');
-      alert(`SMS sent successfully to ${selectedCustomers.length} customers!`);
+    const result = await sendSms(message, selectedCustomers, []);
+    setStatus('');
+
+    if (result?.ok) {
       setMessage('');
       setSelectedCustomers([]);
-    }, 1500);
+    }
   };
 
   return (

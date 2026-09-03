@@ -1,92 +1,257 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'react-toastify';
+
+import { errorMessage } from '../api/client';
+import {
+  AuthService,
+  CoreService,
+  CustomerService,
+  ExpenseService,
+  HRService,
+  LedgerService,
+  ProductService,
+  PurchaseService,
+  ReportService,
+  ReturnService,
+  SaleService,
+  SMSService,
+  SupplierService,
+  TreasuryService,
+} from '../api/services';
+
+/**
+ * The single bridge between the pages and the API.
+ *
+ * Every action name, argument list and piece of state below is the same as it
+ * was when this store kept everything in browser storage, so no page had to
+ * change. What changed is the inside: each action now posts to Django and then
+ * refreshes the slices that moved, and the server is the only source of truth.
+ */
+
+// Pages call these actions without awaiting, and a couple of screens fire two
+// in a row (POS edits a sale by deleting it and re-creating it). Running them
+// through one chain keeps them in the order they were issued.
+let chain = Promise.resolve();
+const enqueue = (task) => {
+  chain = chain.then(task, task);
+  return chain;
+};
+
+const fail = (error, fallback) => {
+  const message = errorMessage(error, fallback);
+  toast.error(message);
+  return { ok: false, error: message };
+};
+
+/** Drop keys the API treats as read-only, so a PATCH doesn't fight the server. */
+const clean = (payload, extra = []) => {
+  const drop = new Set([
+    'created_at', 'updated_at', 'dateAdded', 'date_added',
+    'customer_code', 'supplier_code', 'staff_code', 'product_code',
+    ...extra,
+  ]);
+  return Object.fromEntries(
+    Object.entries(payload || {}).filter(([key, value]) => !drop.has(key) && value !== undefined)
+  );
+};
 
 const useStore = create(
   persist(
     (set, get) => ({
-      // App State
-      user: null, // { id, name, role: 'Admin' | 'Salesman' }
+      // ---------------------------------------------------------------- //
+      // App state
+      // ---------------------------------------------------------------- //
+      user: null, // { id, name, username, role }
       theme: 'light',
-      themeGradient: 'theme-sky', // Added for multiple theme colors
-      language: 'en', // 'en' or 'bn'
+      themeGradient: 'theme-sky',
+      language: 'en',
+      isLoading: false,
+      shopProfile: null,
+      dashboardSummary: null,
+
       smsSettings: {
         autoSalesConfirm: true,
         autoPaymentReceive: true,
-        autoDueReminder: false
+        autoDueReminder: false,
       },
-      smsBalance: 1500,
-      setThemeGradient: (gradient) => set({ themeGradient: gradient }),
-      setLanguage: (lang) => set({ language: lang }),
-      toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
-      login: (userData) => set({ user: userData }),
-      logout: () => set({ user: null }),
+      smsBalance: 0,
 
-      // Accounts State
-      cashBalance: 50000,
-      bankBalance: 150000,
+      // ---------------------------------------------------------------- //
+      // Server-backed tables. Empty until hydrate() runs.
+      // ---------------------------------------------------------------- //
+      inventory: [],
+      categories: [],
+      units: [],
+      customers: [],
+      suppliers: [],
+      sales: [],
+      purchases: [],
+      returns: [],
+      settlements: [],
+      expenses: [],
+      expenseCategories: [],
+      staff: [],
+      attendance: [],
+      leaves: [],
+      payrolls: [],
+
+      cashBalance: 0,
+      bankBalance: 0,
       accountTransactions: [],
-      transferFunds: (from, to, amount) => set((state) => {
-        const newCash = from === 'Cash' ? state.cashBalance - amount : (to === 'Cash' ? state.cashBalance + amount : state.cashBalance);
-        const newBank = from === 'Bank' ? state.bankBalance - amount : (to === 'Bank' ? state.bankBalance + amount : state.bankBalance);
-        
-        const txOut = {
-          id: 'TXN' + Date.now(),
-          date: new Date().toISOString(),
-          accountId: from,
-          type: 'Out',
-          amount,
-          description: `Internal Transfer to ${to}`
-        };
-        const txIn = {
-          id: 'TXN' + (Date.now() + 1),
-          date: new Date().toISOString(),
-          accountId: to,
-          type: 'In',
-          amount,
-          description: `Internal Transfer from ${from}`
-        };
 
-        return {
-          cashBalance: newCash,
-          bankBalance: newBank,
-          accountTransactions: [txIn, txOut, ...(state.accountTransactions || [])]
-        };
-      }),
-
-      // Core Data Tables (Initialized with Mock Data for demonstration)
-      inventory: [
-        { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500, dateAdded: new Date().toISOString() },
-        { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850, dateAdded: new Date().toISOString() },
-        { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120, dateAdded: new Date().toISOString() },
-      ],
-      customers: [
-        { id: 'C001', name: 'Karim Rahman', phone: '01711000000', location: 'Dhaka', due: 1500 },
-        { id: 'C002', name: 'Abdul Alim', phone: '01811000000', location: 'Chittagong', due: 0 },
-      ],
-      suppliers: [
-        { id: 'S001', name: 'Rahim Traders', phone: '01911000000', due: 12000 },
-        { id: 'S002', name: 'Global Impex', phone: '01611000000', due: 0 },
-      ],
-      sales: [],      // Retail Sales & Gifts History
-      purchases: [],  // Supplier Purchases History
-      returns: [],    // Customer returns & Supplier rejects
-      settlements: [], // Due settlement history
-      expenses: [
-        { id: 1, date: new Date().toISOString().split('T')[0], category: 'Transport', amount: 350, description: 'Van rent for rice delivery' },
-        { id: 2, date: new Date().toISOString().split('T')[0], category: 'Staff Cost', amount: 200, description: 'Lunch for staff' },
-      ],
-
-      // HR & Payroll State
-      staff: [
-        { id: 'ST001', name: 'Rahim', role: 'Salesman', baseSalary: 12000, joinDate: '2023-01-15' },
-        { id: 'ST002', name: 'Karim', role: 'Salesman', baseSalary: 12000, joinDate: '2023-02-10' },
-      ],
-      attendance: [], // { id, date, staffId, status: 'Present' | 'Absent' | 'Late' | 'Leave' }
-      leaves: [],     // { id, date, staffId, type: 'Casual' | 'Sick', reason, status: 'Pending' | 'Approved' | 'Rejected' }
-      payrolls: [],   // { id, month, year, staffId, presentDays, baseSalary, bonus, netPay, paymentDate }
-
-      // Cart State (Temporary, not persisted to DB logically but kept in Zustand)
       cart: [],
+
+      // ---------------------------------------------------------------- //
+      // Session
+      // ---------------------------------------------------------------- //
+      signIn: async (username, password) => {
+        try {
+          const account = await AuthService.login(username, password);
+          const user = {
+            id: account.id,
+            username: account.username,
+            // Pages render `user.name`; the API splits it across three fields.
+            name: [account.first_name, account.last_name].filter(Boolean).join(' ').trim()
+              || account.username,
+            role: account.role,
+            email: account.email,
+          };
+          set({ user });
+          await get().hydrate();
+          return { ok: true, user };
+        } catch (error) {
+          return fail(error, 'Login failed. Check your username and password.');
+        }
+      },
+
+      login: (userData) => set({ user: userData }),
+
+      logout: () => {
+        AuthService.logout();
+        set({
+          user: null,
+          inventory: [], categories: [], units: [], customers: [], suppliers: [], sales: [], purchases: [],
+          returns: [], settlements: [], expenses: [], expenseCategories: [], staff: [], attendance: [],
+          leaves: [], payrolls: [], accountTransactions: [], dashboardSummary: null,
+          cashBalance: 0, bankBalance: 0, cart: [],
+        });
+      },
+
+      // ---------------------------------------------------------------- //
+      // Loading
+      // ---------------------------------------------------------------- //
+
+      /** Refresh a named slice after something changed it. */
+      refresh: async (...slices) => {
+        const jobs = {
+          inventory: () => Promise.allSettled([
+            ProductService.list(),
+            ProductService.categories(),
+            ProductService.units()
+          ]).then(([pList, pCats, pUnits]) => ({
+            inventory: pList.status === 'fulfilled' ? pList.value : [],
+            categories: pCats.status === 'fulfilled' ? pCats.value : [],
+            units: pUnits.status === 'fulfilled' ? pUnits.value : [],
+          })),
+          customers: () => CustomerService.list().then((r) => ({ customers: r })),
+          suppliers: () => SupplierService.list().then((r) => ({ suppliers: r })),
+          sales: () => SaleService.list().then((r) => ({ sales: r })),
+          purchases: () => PurchaseService.list().then((r) => ({ purchases: r })),
+          returns: () => ReturnService.list().then((r) => ({ returns: r })),
+          settlements: () => LedgerService.settlements().then((r) => ({ settlements: r })),
+          expenses: () => Promise.allSettled([
+            ExpenseService.list(),
+            ExpenseService.categories()
+          ]).then(([eList, eCats]) => ({
+            expenses: eList.status === 'fulfilled' ? eList.value : [],
+            expenseCategories: eCats.status === 'fulfilled' ? eCats.value : [],
+          })),
+          staff: () => HRService.staff().then((r) => ({ staff: r })),
+          attendance: () => HRService.attendance().then((r) => ({ attendance: r })),
+          leaves: () => HRService.leaves().then((r) => ({ leaves: r })),
+          payrolls: () => HRService.payrolls().then((r) => ({ payrolls: r })),
+          treasury: () => TreasuryService.summary().then((r) => ({
+            cashBalance: Number(r.cashBalance) || 0,
+            bankBalance: Number(r.bankBalance) || 0,
+            accountTransactions: r.accountTransactions || [],
+          })),
+          sms: () => SMSService.balance().then((r) => ({ smsBalance: r.smsBalance ?? r.balance ?? 0 })),
+          dashboard: () => ReportService.summary().then((r) => ({ dashboardSummary: r })),
+        };
+
+        const wanted = slices.length ? slices : Object.keys(jobs);
+        const results = await Promise.allSettled(wanted.map((name) => jobs[name]?.()));
+
+        const patch = {};
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value) Object.assign(patch, result.value);
+        });
+        if (Object.keys(patch).length) set(patch);
+        return patch;
+      },
+
+      /** Load everything the app shows. Called once after login and on reload. */
+      hydrate: async () => {
+        if (!get().user) return;
+        set({ isLoading: true });
+        try {
+          await get().refresh();
+          try {
+            const profile = await CoreService.shopProfile();
+            set({ shopProfile: profile });
+          } catch {
+            /* letterhead is optional; the pages have their own headings */
+          }
+          try {
+            const settings = await CoreService.userSettings();
+            set({
+              theme: settings.theme_mode || get().theme,
+              themeGradient: settings.active_theme_class || get().themeGradient,
+              language: settings.language || get().language,
+              smsSettings: settings.smsSettings || get().smsSettings,
+            });
+          } catch {
+            /* fall back to whatever is stored locally */
+          }
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // ---------------------------------------------------------------- //
+      // Appearance. Applied locally at once, saved to the server behind it.
+      // ---------------------------------------------------------------- //
+      saveSettings: (patch) => {
+        if (!get().user) return;
+        CoreService.saveUserSettings(patch).catch(() => {});
+      },
+
+      setThemeGradient: (gradient) => {
+        set({ themeGradient: gradient });
+        get().saveSettings({ active_theme_class: gradient });
+      },
+
+      setLanguage: (lang) => {
+        set({ language: lang });
+        get().saveSettings({ language: lang });
+      },
+
+      toggleTheme: () => {
+        const next = get().theme === 'dark' ? 'light' : 'dark';
+        set({ theme: next });
+        get().saveSettings({ theme_mode: next });
+      },
+
+      updateSmsSettings: (patch) => {
+        const merged = { ...get().smsSettings, ...patch };
+        set({ smsSettings: merged });
+        get().saveSettings({ smsSettings: merged });
+      },
+
+      // ---------------------------------------------------------------- //
+      // Cart. Purely local until checkout.
+      // ---------------------------------------------------------------- //
       addToCart: (product) => set((state) => {
         const existing = state.cart.find((item) => item.id === product.id);
         if (existing) {
@@ -99,481 +264,410 @@ const useStore = create(
         return { cart: [...state.cart, { ...product, quantity: 1, isGift: false, itemDiscount: 0 }] };
       }),
       removeFromCart: (productId) => set((state) => ({
-        cart: state.cart.filter((item) => item.id !== productId)
+        cart: state.cart.filter((item) => item.id !== productId),
       })),
       updateCartItem: (productId, updates) => set((state) => ({
         cart: state.cart.map((item) =>
           item.id === productId ? { ...item, ...updates } : item
-        )
+        ),
       })),
       clearCart: () => set({ cart: [] }),
       setCart: (cartItems) => set({ cart: cartItems }),
 
-      // INVENTORY LOGIC
-      addInventoryItem: (item) => set((state) => ({
-        inventory: [{ ...item, dateAdded: item.dateAdded || new Date().toISOString() }, ...state.inventory]
-      })),
-      updateInventoryItem: (id, updates) => set((state) => ({
-        inventory: state.inventory.map(item => item.id === id ? { ...item, ...updates } : item)
-      })),
-      deleteInventoryItem: (id) => set((state) => ({
-        inventory: state.inventory.filter(item => item.id !== id)
-      })),
-
-      // DUE MANAGEMENT
-      settleCustomerDue: (customerId, amount, dateStr) => set((state) => {
-        const date = dateStr || new Date().toISOString();
-        const settlementRecord = { id: 'STL' + Date.now(), targetId: customerId, type: 'Customer', amount, date };
-        const tx = { id: 'TXN' + Date.now(), date, accountId: 'Cash', type: 'In', amount, description: `Due Collection from Customer ${customerId}` };
-        return {
-          cashBalance: state.cashBalance + amount,
-          accountTransactions: [tx, ...(state.accountTransactions || [])],
-          customers: state.customers.map(c => 
-            c.id === customerId ? { ...c, due: Math.max(0, c.due - amount) } : c
-          ),
-          settlements: [settlementRecord, ...(state.settlements || [])]
-        };
-      }),
-      settleSupplierDue: (supplierId, amount, dateStr) => set((state) => {
-        const date = dateStr || new Date().toISOString();
-        const settlementRecord = { id: 'STL' + Date.now(), targetId: supplierId, type: 'Supplier', amount, date };
-        const tx = { id: 'TXN' + Date.now(), date, accountId: 'Cash', type: 'Out', amount, description: `Due Payment to Supplier ${supplierId}` };
-        return {
-          cashBalance: state.cashBalance - amount,
-          accountTransactions: [tx, ...(state.accountTransactions || [])],
-          suppliers: state.suppliers.map(s => 
-            s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s
-          ),
-          settlements: [settlementRecord, ...(state.settlements || [])]
-        };
+      // ---------------------------------------------------------------- //
+      // Inventory
+      // ---------------------------------------------------------------- //
+      addInventoryItem: (item) => enqueue(async () => {
+        try {
+          await ProductService.create(clean(item));
+          await get().refresh('inventory');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not add the product.');
+        }
       }),
 
-      // BUSINESS LOGIC ACTIONS
+      updateInventoryItem: (id, updates) => enqueue(async () => {
+        try {
+          await ProductService.update(id, clean(updates, ['id']));
+          await get().refresh('inventory');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the product.');
+        }
+      }),
 
-      processSale: ({ cartItems, paymentType, customerInfo, invoiceDiscount, salesman }) => set((state) => {
-        const newInventory = [...state.inventory];
-        let subtotal = 0;
-        let isGiftInvoice = false;
+      deleteInventoryItem: (id) => enqueue(async () => {
+        try {
+          await ProductService.remove(id);
+          await get().refresh('inventory');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the product.');
+        }
+      }),
 
-        cartItems.forEach(cartItem => {
-          // Adjust Inventory (Deduct stock)
-          const invIndex = newInventory.findIndex(i => i.id === cartItem.id);
-          if (invIndex !== -1) {
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock - cartItem.quantity };
-          }
-          if (!cartItem.isGift) {
-            subtotal += (cartItem.price - cartItem.itemDiscount) * cartItem.quantity;
-          } else {
-            isGiftInvoice = true;
-          }
-        });
-
-        const total = Math.max(0, subtotal - invoiceDiscount);
-        
-        // Handle Baki (Due)
-        const newCustomers = [...state.customers];
-        let customerId = null;
-
-        if (customerInfo.name) {
-          const existingCustIndex = newCustomers.findIndex(c => c.phone === customerInfo.phone || c.name === customerInfo.name);
-          if (existingCustIndex !== -1) {
-            customerId = newCustomers[existingCustIndex].id;
-            if (paymentType === 'Baki') {
-              newCustomers[existingCustIndex] = { ...newCustomers[existingCustIndex], due: newCustomers[existingCustIndex].due + total };
-            }
-          } else {
-            customerId = 'C' + Date.now();
-            newCustomers.push({
-              id: customerId,
-              name: customerInfo.name,
-              phone: customerInfo.phone || '',
-              location: customerInfo.location || '',
-              due: paymentType === 'Baki' ? total : 0
+      // ---------------------------------------------------------------- //
+      // Sales
+      // ---------------------------------------------------------------- //
+      processSale: ({ cartItems, paymentType, customerInfo, invoiceDiscount, salesman }) =>
+        enqueue(async () => {
+          try {
+            await SaleService.create({
+              cartItems,
+              paymentType,
+              customerInfo,
+              invoiceDiscount: invoiceDiscount || 0,
+              salesman: salesman || {},
             });
+            await get().refresh('sales', 'inventory', 'customers', 'treasury', 'dashboard');
+            return { ok: true };
+          } catch (error) {
+            // The cart is cleared by the page optimistically, so put it back
+            // rather than leaving the counter staff to key it in a second time.
+            set({ cart: cartItems || [] });
+            return fail(error, 'The sale could not be saved.');
           }
+        }),
+
+      deleteSale: (saleId) => enqueue(async () => {
+        try {
+          await SaleService.remove(saleId);
+          await get().refresh('sales', 'inventory', 'customers', 'treasury', 'dashboard');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the sale.');
         }
-
-        const saleRecord = {
-          id: 'INV' + Date.now(),
-          date: new Date().toISOString(),
-          items: cartItems,
-          subtotal,
-          invoiceDiscount,
-          total,
-          paymentType,
-          customerId,
-          customerName: customerInfo.name || 'Walk-in Customer',
-          salesmanId: salesman?.id || 'Admin',
-          salesmanName: salesman?.name || 'Admin',
-          isGift: isGiftInvoice && total === 0
-        };
-
-        const newCash = paymentType === 'Cash' && total > 0 ? state.cashBalance + total : state.cashBalance;
-        const newTransactions = [...(state.accountTransactions || [])];
-        if (paymentType === 'Cash' && total > 0) {
-           newTransactions.unshift({
-             id: 'TXN' + Date.now(),
-             date: saleRecord.date,
-             accountId: 'Cash',
-             type: 'In',
-             amount: total,
-             description: `Sales Revenue (${saleRecord.id})`
-           });
-        }
-
-        return {
-          cashBalance: newCash,
-          accountTransactions: newTransactions,
-          inventory: newInventory,
-          customers: newCustomers,
-          sales: [saleRecord, ...state.sales],
-          cart: [] // clear cart on success
-        };
       }),
 
-      deleteSale: (saleId) => set((state) => {
-        const saleIndex = state.sales.findIndex(s => s.id === saleId);
-        if (saleIndex === -1) return state;
-        const sale = state.sales[saleIndex];
-        
-        // Reverse inventory
-        const newInventory = [...state.inventory];
-        sale.items.forEach(cartItem => {
-          const invIndex = newInventory.findIndex(i => i.id === cartItem.id);
-          if (invIndex !== -1) {
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + cartItem.quantity };
-          }
-        });
-
-        // Reverse Cash/Due
-        let newCash = state.cashBalance;
-        const newCustomers = [...state.customers];
-        if (sale.paymentType === 'Cash' && sale.total > 0) {
-          newCash -= sale.total;
-        } else if (sale.paymentType === 'Baki' && sale.customerId) {
-          const cIndex = newCustomers.findIndex(c => c.id === sale.customerId);
-          if (cIndex !== -1) {
-             newCustomers[cIndex] = { ...newCustomers[cIndex], due: Math.max(0, newCustomers[cIndex].due - sale.total) };
-          }
-        }
-
-        // Remove transaction
-        const newTransactions = (state.accountTransactions || []).filter(tx => 
-          !(tx.description && tx.description.includes(`(${sale.id})`))
-        );
-
-        return {
-          sales: state.sales.filter(s => s.id !== saleId),
-          inventory: newInventory,
-          cashBalance: newCash,
-          customers: newCustomers,
-          accountTransactions: newTransactions
-        };
-      }),
-
-      processPurchase: ({ items, supplierId, supplierName, paymentType, total, paidAmount = 0 }) => set((state) => {
-        const newInventory = [...state.inventory];
-        
-        items.forEach(item => {
-          const invIndex = newInventory.findIndex(i => i.name.toLowerCase() === item.name.toLowerCase());
-          if (invIndex !== -1) {
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + item.quantity };
-          } else {
-            // Add new product
-            newInventory.push({
-              id: 'P' + Date.now() + Math.floor(Math.random()*100),
-              name: item.name,
-              category: 'Uncategorized',
-              unit: 'Pcs',
-              stock: item.quantity,
-              price: item.price // Note: this is purchase price, not retail, but simplified here
+      // ---------------------------------------------------------------- //
+      // Purchases
+      // ---------------------------------------------------------------- //
+      processPurchase: ({ items, supplierId, supplierName, paymentType, total, paidAmount = 0 }) =>
+        enqueue(async () => {
+          try {
+            await PurchaseService.create({
+              items, supplierId, supplierName, paymentType, total, paidAmount,
             });
+            await get().refresh('purchases', 'inventory', 'suppliers', 'treasury', 'dashboard');
+            return { ok: true };
+          } catch (error) {
+            return fail(error, 'The purchase could not be saved.');
           }
-        });
+        }),
 
-        const newSuppliers = [...state.suppliers];
-        const dueAmount = paymentType === 'Baki' ? (total - paidAmount) : 0;
-        
-        if (dueAmount > 0) {
-          const supIndex = newSuppliers.findIndex(s => s.id === supplierId);
-          if (supIndex !== -1) {
-            newSuppliers[supIndex] = { ...newSuppliers[supIndex], due: newSuppliers[supIndex].due + dueAmount };
-          }
+      deletePurchase: (purchaseId) => enqueue(async () => {
+        try {
+          await PurchaseService.remove(purchaseId);
+          await get().refresh('purchases', 'inventory', 'suppliers', 'treasury', 'dashboard');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the purchase.');
         }
-
-        const purchaseRecord = {
-          id: 'PUR' + Date.now(),
-          date: new Date().toISOString(),
-          items,
-          supplierId,
-          supplierName,
-          paymentType,
-          total,
-          paidAmount
-        };
-
-        const newCash = paidAmount > 0 ? state.cashBalance - paidAmount : state.cashBalance;
-        const newTransactions = [...(state.accountTransactions || [])];
-        if (paidAmount > 0) {
-           newTransactions.unshift({
-             id: 'TXN' + Date.now(),
-             date: purchaseRecord.date,
-             accountId: 'Cash',
-             type: 'Out',
-             amount: paidAmount,
-             description: `Purchase Payment (${purchaseRecord.id})`
-           });
-        }
-
-        return {
-          cashBalance: newCash,
-          accountTransactions: newTransactions,
-          inventory: newInventory,
-          suppliers: newSuppliers,
-          purchases: [purchaseRecord, ...state.purchases]
-        };
-      }),
-      deletePurchase: (purchaseId) => set((state) => {
-        const purchaseIndex = state.purchases.findIndex(p => p.id === purchaseId);
-        if (purchaseIndex === -1) return state;
-        const purchase = state.purchases[purchaseIndex];
-        
-        // Reverse inventory
-        const newInventory = [...state.inventory];
-        purchase.items.forEach(item => {
-          const invIndex = newInventory.findIndex(i => i.name.toLowerCase() === item.name.toLowerCase());
-          if (invIndex !== -1) {
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: Math.max(0, newInventory[invIndex].stock - item.quantity) };
-          }
-        });
-
-        // Reverse Supplier Due
-        const newSuppliers = [...state.suppliers];
-        const dueAmount = purchase.paymentType === 'Baki' ? (purchase.total - purchase.paidAmount) : 0;
-        if (dueAmount > 0) {
-           const supIndex = newSuppliers.findIndex(s => s.id === purchase.supplierId);
-           if (supIndex !== -1) {
-             newSuppliers[supIndex] = { ...newSuppliers[supIndex], due: Math.max(0, newSuppliers[supIndex].due - dueAmount) };
-           }
-        }
-
-        // Reverse Cash
-        let newCash = state.cashBalance;
-        if (purchase.paidAmount > 0) {
-          newCash += purchase.paidAmount;
-        }
-        
-        return {
-          purchases: state.purchases.filter(p => p.id !== purchaseId),
-          inventory: newInventory,
-          suppliers: newSuppliers,
-          cashBalance: newCash
-        };
       }),
 
-      processReturn: ({ returnType, productId, quantity, reason }) => set((state) => {
-        const newInventory = [...state.inventory];
-        const invIndex = newInventory.findIndex(i => i.id === productId);
-        
-        if (invIndex !== -1) {
-          if (returnType === 'Customer') {
-            // Customer returned to us -> increase stock
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + quantity };
+      // ---------------------------------------------------------------- //
+      // Returns
+      // ---------------------------------------------------------------- //
+      processReturn: ({ returnType, productId, quantity, reason, date, referenceId }) =>
+        enqueue(async () => {
+          try {
+            await ReturnService.create({
+              returnType, productId, quantity, reason,
+              date: date || undefined,
+              referenceId: referenceId || '',
+            });
+            await get().refresh('returns', 'inventory');
+            return { ok: true };
+          } catch (error) {
+            return fail(error, 'The return could not be saved.');
+          }
+        }),
+
+      deleteReturn: (returnId) => enqueue(async () => {
+        try {
+          await ReturnService.remove(returnId);
+          await get().refresh('returns', 'inventory');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the return.');
+        }
+      }),
+
+      // ---------------------------------------------------------------- //
+      // Dues and settlements
+      // ---------------------------------------------------------------- //
+      settleCustomerDue: (customerId, amount, dateStr) => enqueue(async () => {
+        try {
+          await LedgerService.settleDue({
+            targetId: customerId, type: 'Customer', amount,
+            date: dateStr ? String(dateStr).split('T')[0] : undefined,
+          });
+          await get().refresh('customers', 'settlements', 'treasury');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'The payment could not be recorded.');
+        }
+      }),
+
+      settleSupplierDue: (supplierId, amount, dateStr) => enqueue(async () => {
+        try {
+          await LedgerService.settleDue({
+            targetId: supplierId, type: 'Supplier', amount,
+            date: dateStr ? String(dateStr).split('T')[0] : undefined,
+          });
+          await get().refresh('suppliers', 'settlements', 'treasury');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'The payment could not be recorded.');
+        }
+      }),
+
+      payCustomerDue: (customerId, amount) => get().settleCustomerDue(customerId, amount),
+      paySupplierDue: (supplierId, amount) => get().settleSupplierDue(supplierId, amount),
+
+      // ---------------------------------------------------------------- //
+      // Contacts
+      // ---------------------------------------------------------------- //
+      addCustomer: (customerData) => enqueue(async () => {
+        try {
+          await CustomerService.create(clean(customerData));
+          await get().refresh('customers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not add the customer.');
+        }
+      }),
+
+      updateCustomer: (customerId, updates) => enqueue(async () => {
+        try {
+          await CustomerService.update(customerId, clean(updates, ['id']));
+          await get().refresh('customers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the customer.');
+        }
+      }),
+
+      deleteCustomer: (customerId) => enqueue(async () => {
+        try {
+          await CustomerService.remove(customerId);
+          await get().refresh('customers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the customer.');
+        }
+      }),
+
+      addSupplier: (supplierData) => enqueue(async () => {
+        try {
+          await SupplierService.create(clean(supplierData));
+          await get().refresh('suppliers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not add the supplier.');
+        }
+      }),
+
+      updateSupplier: (supplierId, updates) => enqueue(async () => {
+        try {
+          await SupplierService.update(supplierId, clean(updates, ['id']));
+          await get().refresh('suppliers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the supplier.');
+        }
+      }),
+
+      deleteSupplier: (supplierId) => enqueue(async () => {
+        try {
+          await SupplierService.remove(supplierId);
+          await get().refresh('suppliers');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the supplier.');
+        }
+      }),
+
+      // ---------------------------------------------------------------- //
+      // Expenses
+      // ---------------------------------------------------------------- //
+      addExpense: (expense) => enqueue(async () => {
+        try {
+          await ExpenseService.create(clean(expense, ['id']));
+          await get().refresh('expenses', 'treasury', 'dashboard');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not save the expense.');
+        }
+      }),
+
+      updateExpense: (expenseId, updates) => enqueue(async () => {
+        try {
+          await ExpenseService.update(expenseId, clean(updates, ['id']));
+          await get().refresh('expenses', 'treasury', 'dashboard');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the expense.');
+        }
+      }),
+
+      deleteExpense: (expenseId) => enqueue(async () => {
+        try {
+          await ExpenseService.remove(expenseId);
+          await get().refresh('expenses', 'treasury', 'dashboard');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the expense.');
+        }
+      }),
+
+      // ---------------------------------------------------------------- //
+      // Treasury
+      // ---------------------------------------------------------------- //
+      transferFunds: (from, to, amount) => enqueue(async () => {
+        try {
+          await TreasuryService.transfer({ from, to, amount });
+          await get().refresh('treasury');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'The transfer could not be completed.');
+        }
+      }),
+
+      // ---------------------------------------------------------------- //
+      // HR
+      // ---------------------------------------------------------------- //
+      addStaff: (staffData) => enqueue(async () => {
+        try {
+          await HRService.createStaff(clean(staffData, ['id']));
+          await get().refresh('staff');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not add the staff member.');
+        }
+      }),
+
+      updateStaff: (staffId, updates) => enqueue(async () => {
+        try {
+          await HRService.updateStaff(staffId, clean(updates, ['id', 'due']));
+          await get().refresh('staff');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the staff member.');
+        }
+      }),
+
+      deleteStaff: (staffId) => enqueue(async () => {
+        try {
+          await HRService.removeStaff(staffId);
+          await get().refresh('staff');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not delete the staff member.');
+        }
+      }),
+
+      markAttendance: (staffId, date, status) => enqueue(async () => {
+        try {
+          await HRService.markAttendance({ staffId, date, status });
+          await get().refresh('attendance');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not save the attendance.');
+        }
+      }),
+
+      addLeaveRequest: (leaveData) => enqueue(async () => {
+        try {
+          await HRService.createLeave(leaveData);
+          await get().refresh('leaves');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not submit the leave request.');
+        }
+      }),
+
+      updateLeaveStatus: (leaveId, status) => enqueue(async () => {
+        try {
+          await HRService.setLeaveStatus(leaveId, status);
+          // Approving a leave writes attendance for every day in the range.
+          await get().refresh('leaves', 'attendance');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not update the leave request.');
+        }
+      }),
+
+      generatePayslip: (payrollData) => enqueue(async () => {
+        try {
+          await HRService.generatePayslip({
+            staffId: payrollData.staffId,
+            month: payrollData.month,
+            year: payrollData.year,
+            presentDays: payrollData.presentDays,
+            bonus: payrollData.bonus || 0,
+          });
+          await get().refresh('payrolls', 'expenses', 'treasury');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not generate the payslip.');
+        }
+      }),
+
+      // ---------------------------------------------------------------- //
+      // SMS
+      // ---------------------------------------------------------------- //
+      purchaseSms: (credits, cost) => enqueue(async () => {
+        try {
+          const result = await SMSService.buy(credits, cost);
+          set({ smsBalance: result.smsBalance });
+          await get().refresh('treasury');
+          return { ok: true };
+        } catch (error) {
+          return fail(error, 'Could not buy the SMS package.');
+        }
+      }),
+
+      sendSms: (message, customerIds = [], numbers = []) => enqueue(async () => {
+        try {
+          const result = await SMSService.send(message, customerIds, numbers);
+          set({ smsBalance: result.smsBalance ?? get().smsBalance });
+          // The gateway reports Simulated when no provider is configured, and
+          // saying "sent" then would be a lie to the shopkeeper.
+          if (result.delivered) {
+            toast.success(result.message);
           } else {
-            // We rejected to supplier -> decrease stock
-            newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock - quantity };
+            toast.warn(result.message);
           }
-        }
-
-        const returnRecord = {
-          id: 'RET' + Date.now(),
-          date: new Date().toISOString(),
-          returnType, // 'Customer' | 'Supplier'
-          productId,
-          quantity,
-          reason
-        };
-
-        return {
-          inventory: newInventory,
-          returns: [returnRecord, ...state.returns]
-        };
-      }),
-      deleteReturn: (returnId) => set((state) => {
-        const returnRecordIndex = state.returns.findIndex(r => r.id === returnId);
-        if (returnRecordIndex === -1) return state;
-        const returnRecord = state.returns[returnRecordIndex];
-        
-        const newInventory = [...state.inventory];
-        const invIndex = newInventory.findIndex(i => i.id === returnRecord.productId);
-        if (invIndex !== -1) {
-          if (returnRecord.returnType === 'Customer') {
-             // reverse the customer return (subtract stock)
-             newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock - returnRecord.quantity };
-          } else {
-             // reverse supplier return (add stock back)
-             newInventory[invIndex] = { ...newInventory[invIndex], stock: newInventory[invIndex].stock + returnRecord.quantity };
-          }
-        }
-        return {
-          returns: state.returns.filter(r => r.id !== returnId),
-          inventory: newInventory
-        };
-      }),
-
-      payCustomerDue: (customerId, amount) => set((state) => ({
-        customers: state.customers.map(c => c.id === customerId ? { ...c, due: Math.max(0, c.due - amount) } : c)
-      })),
-
-      paySupplierDue: (supplierId, amount) => set((state) => ({
-        suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, due: Math.max(0, s.due - amount) } : s)
-      })),
-
-      addCustomer: (customerData) => set((state) => ({
-        customers: [...state.customers, { id: 'C' + Date.now(), due: 0, ...customerData }]
-      })),
-      updateCustomer: (customerId, updates) => set((state) => ({
-        customers: state.customers.map(c => c.id === customerId ? { ...c, ...updates } : c)
-      })),
-      deleteCustomer: (customerId) => set((state) => ({
-        customers: state.customers.filter(c => c.id !== customerId)
-      })),
-
-      addSupplier: (supplierData) => set((state) => ({
-        suppliers: [...state.suppliers, { id: 'SUP' + Date.now(), due: 0, ...supplierData }]
-      })),
-
-      updateSupplier: (supplierId, updates) => set((state) => ({
-        suppliers: state.suppliers.map(s => s.id === supplierId ? { ...s, ...updates } : s)
-      })),
-      deleteSupplier: (supplierId) => set((state) => ({
-        suppliers: state.suppliers.filter(s => s.id !== supplierId)
-      })),
-
-      addExpense: (expense) => set((state) => {
-        const expenseEntry = { id: Date.now(), ...expense };
-        const tx = { id: 'TXN' + Date.now(), date: expenseEntry.date, accountId: 'Cash', type: 'Out', amount: expense.amount, description: `Expense: ${expense.category}` };
-        return {
-          cashBalance: state.cashBalance - expense.amount,
-          accountTransactions: [tx, ...(state.accountTransactions || [])],
-          expenses: [expenseEntry, ...state.expenses]
-        };
-      }),
-      updateExpense: (expenseId, updates) => set((state) => {
-        const expense = state.expenses.find(e => e.id === expenseId);
-        if (!expense) return state;
-        const diff = (updates.amount || expense.amount) - expense.amount;
-        return {
-          cashBalance: state.cashBalance - diff, // If new amount is higher, balance drops more
-          expenses: state.expenses.map(e => e.id === expenseId ? { ...e, ...updates } : e)
-        };
-      }),
-      deleteExpense: (expenseId) => set((state) => {
-        const expense = state.expenses.find(e => e.id === expenseId);
-        if (!expense) return state;
-        return {
-          cashBalance: state.cashBalance + expense.amount,
-          expenses: state.expenses.filter(e => e.id !== expenseId)
-        };
-      }),
-
-      // HR ACTIONS
-      addStaff: (staffData) => set((state) => ({
-        staff: [...state.staff, { id: 'ST' + Date.now(), ...staffData }]
-      })),
-      updateStaff: (staffId, updates) => set((state) => ({
-        staff: state.staff.map(s => s.id === staffId ? { ...s, ...updates } : s)
-      })),
-      deleteStaff: (staffId) => set((state) => ({
-        staff: state.staff.filter(s => s.id !== staffId)
-      })),
-      
-      markAttendance: (staffId, date, status) => set((state) => {
-        const existingIndex = state.attendance.findIndex(a => a.staffId === staffId && a.date === date);
-        if (existingIndex !== -1) {
-          const newAttendance = [...state.attendance];
-          newAttendance[existingIndex] = { ...newAttendance[existingIndex], status };
-          return { attendance: newAttendance };
-        } else {
-          return {
-            attendance: [...state.attendance, { id: Date.now() + Math.random(), staffId, date, status }]
-          };
+          return { ok: true, ...result };
+        } catch (error) {
+          return fail(error, 'The SMS could not be sent.');
         }
       }),
 
-      addLeaveRequest: (leaveData) => set((state) => ({
-        leaves: [{ id: Date.now(), ...leaveData, status: 'Pending' }, ...state.leaves]
-      })),
-
-      updateLeaveStatus: (leaveId, status) => set((state) => ({
-        leaves: state.leaves.map(l => l.id === leaveId ? { ...l, status } : l)
-      })),
-
-      generatePayslip: (payrollData) => set((state) => {
-        // Automatically add to expenses
-        const expenseEntry = {
-          id: Date.now() + 1,
-          date: new Date().toISOString().split('T')[0],
-          category: 'Staff Cost',
-          amount: payrollData.netPay,
-          description: `Salary for ${payrollData.staffName} (${payrollData.month} ${payrollData.year})`
-        };
-        const tx = { id: 'TXN' + Date.now(), date: expenseEntry.date, accountId: 'Cash', type: 'Out', amount: payrollData.netPay, description: `Payroll: ${payrollData.staffName}` };
-
-        return {
-          cashBalance: state.cashBalance - payrollData.netPay,
-          accountTransactions: [tx, ...(state.accountTransactions || [])],
-          payrolls: [{ id: 'PR' + Date.now(), ...payrollData, paymentDate: new Date().toISOString() }, ...state.payrolls],
-          expenses: [expenseEntry, ...state.expenses]
-        };
+      // ---------------------------------------------------------------- //
+      // Server sync & Refresh
+      // ---------------------------------------------------------------- //
+      refreshAllData: () => enqueue(async () => {
+        await get().refresh();
+        toast.info('Data refreshed from the server.');
+        return { ok: true };
       }),
-
-      loadDummyData: () => set((state) => {
-        const todayStr = new Date().toISOString();
-        const justDate = todayStr.split('T')[0];
-        return {
-          inventory: [
-            { id: '10001', name: 'Premium Rice 50kg', category: 'Grocery', stock: 150, unit: 'Bag', price: 3500, dateAdded: todayStr },
-            { id: '10002', name: 'Refined Oil 5L', category: 'Grocery', stock: 45, unit: 'Bottle', price: 850, dateAdded: todayStr },
-            { id: '10003', name: 'Dal 1kg', category: 'Grocery', stock: 200, unit: 'Packet', price: 120, dateAdded: todayStr },
-            { id: '10004', name: 'Sugar 1kg', category: 'Grocery', stock: 100, unit: 'Packet', price: 140, dateAdded: todayStr },
-          ],
-          customers: [
-            { id: 'C001', name: 'Karim Rahman', phone: '01711000000', location: 'Dhaka', due: 1500 },
-            { id: 'C002', name: 'Abdul Alim', phone: '01811000000', location: 'Chittagong', due: 0 },
-          ],
-          suppliers: [
-            { id: 'S001', name: 'Rahim Traders', phone: '01911000000', due: 12000 },
-            { id: 'S002', name: 'Global Impex', phone: '01611000000', due: 0 },
-          ],
-          staff: [
-            { id: 'ST001', name: 'Rahim', role: 'Salesman', baseSalary: 12000, joinDate: '2023-01-15' },
-            { id: 'ST002', name: 'Karim', role: 'Salesman', baseSalary: 12000, joinDate: '2023-02-10' },
-          ],
-          sales: [
-            { id: 'INV1001', date: todayStr, items: [{id: '10001', name: 'Premium Rice 50kg', quantity: 2, price: 3500, isGift: false}], subtotal: 7000, invoiceDiscount: 100, total: 6900, paymentType: 'Cash', customerName: 'Karim Rahman', salesmanName: 'Rahim', isGift: false },
-            { id: 'INV1002', date: todayStr, items: [{id: '10002', name: 'Refined Oil 5L', quantity: 1, price: 850, isGift: false}], subtotal: 850, invoiceDiscount: 0, total: 850, paymentType: 'Baki', customerName: 'Abdul Alim', salesmanName: 'Karim', isGift: false },
-          ],
-          purchases: [
-            { id: 'PUR2001', date: todayStr, items: [{name: 'Premium Rice 50kg', quantity: 50}], supplierName: 'Rahim Traders', paymentType: 'Baki', total: 150000 }
-          ],
-          expenses: [
-            { id: 1, date: justDate, category: 'Transport', amount: 350, description: 'Van rent' },
-            { id: 2, date: justDate, category: 'Electricity', amount: 1200, description: 'Monthly bill' },
-          ],
-          returns: [
-            { id: 'RET3001', date: todayStr, returnType: 'Customer', productId: '10001', quantity: 1, reason: 'Damaged packaging' },
-            { id: 'RET3002', date: todayStr, returnType: 'Supplier', productId: '10002', quantity: 2, reason: 'Expired product' }
-          ],
-          payrolls: [
-            { id: 'PR4001', staffId: 'ST001', staffName: 'Rahim', month: justDate.substring(0, 7), presentDays: 28, baseSalary: 12000, bonus: 1000, netPay: 12200, paymentDate: todayStr }
-          ]
-        };
-      }),
-
+      loadDummyData: () => get().refreshAllData(),
     }),
     {
-      name: 'retail-shop-storage', // key in localStorage
+      name: 'allha-shop-storage',
+      // Only the things that belong to this browser survive a reload. Every
+      // table is re-read from the server, so a stale cache can never be shown
+      // as if it were current.
+      partialize: (state) => ({
+        user: state.user,
+        theme: state.theme,
+        themeGradient: state.themeGradient,
+        language: state.language,
+        cart: state.cart,
+      }),
     }
   )
 );

@@ -10,15 +10,23 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Salesman');
-  const login = useStore((state) => state.login);
+  const [busy, setBusy] = useState(false);
+  const signIn = useStore((state) => state.signIn);
   const language = useStore((state) => state.language);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Simulate authentication
-    login({ id: 1, name: username || 'User', role: role });
-    navigate('/');
+    if (busy) return;
+    setBusy(true);
+    // The role comes back with the account. A user picking their own role here
+    // would defeat every permission check on the server, so the selection above
+    // is not what decides what they can do.
+    const result = await signIn(username.trim(), password);
+    setBusy(false);
+    if (result?.ok) {
+      navigate('/');
+    }
   };
 
   return (

@@ -48,40 +48,45 @@ const Suppliers = () => {
       person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (person.phone && person.phone.includes(searchTerm))
   );
-  const handleAddSupplier = (e) => {
+  const handleAddSupplier = async (e) => {
     e.preventDefault();
-    if (!newSupplier.name) {
-      alert("Name is required");
+    if (!newSupplier.name?.trim()) {
+      toast.error(language === 'bn' ? 'সাপ্লায়ারের নাম দেওয়া আবশ্যক!' : 'Supplier name is required');
       return;
     }
-    const supplierToSave = { ...newSupplier };
-    if (supplierToSave.due) {
-      supplierToSave.due = parseFloat(supplierToSave.due) || 0;
-    } else {
-      supplierToSave.due = 0;
+    const supplierToSave = {
+      ...newSupplier,
+      name: newSupplier.name.trim(),
+      due: parseFloat(newSupplier.due) || 0,
+    };
+    const res = await addSupplier(supplierToSave);
+    if (res?.ok) {
+      setNewSupplier({ name: '', company: '', phone: '', email: '', location: '', due: '', notes: '' });
+      setShowAddModal(false);
+      toast.success(language === 'bn' ? 'সাপ্লায়ার সফলভাবে যুক্ত হয়েছে!' : 'Supplier added successfully!');
     }
-    addSupplier(supplierToSave);
-    setNewSupplier({ name: '', company: '', phone: '', email: '', location: '', due: '', notes: '' });
-    setShowAddModal(false);
-    toast.success('Supplier added successfully!');
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!editingPerson.name) {
-      alert("Name is required");
+    if (!editingPerson.name?.trim()) {
+      toast.error(language === 'bn' ? 'সাপ্লায়ারের নাম দেওয়া আবশ্যক!' : 'Supplier name is required');
       return;
     }
     const due = parseFloat(editingPerson.due) || 0;
-    updateSupplier(editingPerson.id, { ...editingPerson, due });
-    setEditingPerson(null);
-    toast.success('Updated successfully!');
+    const res = await updateSupplier(editingPerson.id, { ...editingPerson, name: editingPerson.name.trim(), due });
+    if (res?.ok) {
+      setEditingPerson(null);
+      toast.success(language === 'bn' ? 'সাপ্লায়ার তথ্য আপডেট হয়েছে!' : 'Updated successfully!');
+    }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
-      deleteSupplier(id);
-      toast.success('Deleted successfully!');
+  const handleDelete = async (id) => {
+    if (window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই সাপ্লায়ার ডিলিট করতে চান?' : 'Are you sure you want to delete this record? This action cannot be undone.')) {
+      const res = await deleteSupplier(id);
+      if (res?.ok) {
+        toast.success(language === 'bn' ? 'সাপ্লায়ার ডিলিট করা হয়েছে!' : 'Deleted successfully!');
+      }
     }
   };
 
@@ -179,85 +184,87 @@ const Suppliers = () => {
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="add-supplier-form" onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Supplier Name *</label>
-                  <input 
-                    type="text" 
-                    value={newSupplier.name} 
-                    onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} 
-                    placeholder="e.g. Rahim Traders" 
-                    required 
-                    style={{ width: '100%' }}
-                  />
+            <form id="add-supplier-form" onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Supplier Name *</label>
+                    <input 
+                      type="text" 
+                      value={newSupplier.name} 
+                      onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} 
+                      required 
+                      placeholder="e.g. Rahim Text" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Company / Brand</label>
+                    <input 
+                      type="text" 
+                      value={newSupplier.company} 
+                      onChange={e => setNewSupplier({...newSupplier, company: e.target.value})} 
+                      placeholder="e.g. Rahim Group of Industries" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={newSupplier.phone} 
+                      onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} 
+                      placeholder="e.g. 01712345678" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Email Address</label>
+                    <input 
+                      type="email" 
+                      value={newSupplier.email} 
+                      onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} 
+                      placeholder="e.g. rahim@example.com" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                    <input 
+                      type="text" 
+                      value={newSupplier.location} 
+                      onChange={e => setNewSupplier({...newSupplier, location: e.target.value})} 
+                      placeholder="e.g. Dhaka" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Opening Balance (Due)</label>
+                    <input 
+                      type="number" 
+                      value={newSupplier.due} 
+                      onChange={e => setNewSupplier({...newSupplier, due: e.target.value})} 
+                      placeholder="e.g. 5000" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Notes / Remarks</label>
+                    <textarea 
+                      value={newSupplier.notes} 
+                      onChange={e => setNewSupplier({...newSupplier, notes: e.target.value})} 
+                      placeholder="Any additional information..." 
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                      rows={2}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Company / Brand Name</label>
-                  <input 
-                    type="text" 
-                    value={newSupplier.company} 
-                    onChange={e => setNewSupplier({...newSupplier, company: e.target.value})} 
-                    placeholder="e.g. Rahim Group of Industries" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                  <input 
-                    type="text" 
-                    value={newSupplier.phone} 
-                    onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} 
-                    placeholder="e.g. 01712345678" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Email Address</label>
-                  <input 
-                    type="email" 
-                    value={newSupplier.email} 
-                    onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} 
-                    placeholder="e.g. rahim@example.com" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
-                  <input 
-                    type="text" 
-                    value={newSupplier.location} 
-                    onChange={e => setNewSupplier({...newSupplier, location: e.target.value})} 
-                    placeholder="e.g. Dhaka" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Opening Balance (Due)</label>
-                  <input 
-                    type="number" 
-                    value={newSupplier.due} 
-                    onChange={e => setNewSupplier({...newSupplier, due: e.target.value})} 
-                    placeholder="e.g. 5000" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Notes / Remarks</label>
-                  <textarea 
-                    value={newSupplier.notes} 
-                    onChange={e => setNewSupplier({...newSupplier, notes: e.target.value})} 
-                    placeholder="Any additional information..." 
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                    rows={2}
-                  />
-                </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button type="submit" form="add-supplier-form" className="btn-primary">Add Supplier</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Add Supplier</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -273,51 +280,53 @@ const Suppliers = () => {
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="edit-supplier-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Supplier Name *</label>
-                  <input 
-                    type="text" 
-                    value={editingPerson.name} 
-                    onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
-                    required 
-                    style={{ width: '100%' }}
-                  />
+            <form id="edit-supplier-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Supplier Name *</label>
+                    <input 
+                      type="text" 
+                      value={editingPerson.name} 
+                      onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
+                      required 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={editingPerson.phone || ''} 
+                      onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                    <input 
+                      type="text" 
+                      value={editingPerson.location || ''} 
+                      onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
+                    <input 
+                      type="number" 
+                      value={editingPerson.due} 
+                      onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                  <input 
-                    type="text" 
-                    value={editingPerson.phone || ''} 
-                    onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
-                  <input 
-                    type="text" 
-                    value={editingPerson.location || ''} 
-                    onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
-                  <input 
-                    type="number" 
-                    value={editingPerson.due} 
-                    onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
-              <button type="submit" form="edit-supplier-form" className="btn-primary">Save Changes</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

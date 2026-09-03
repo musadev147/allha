@@ -9,47 +9,103 @@ import { toast } from 'react-toastify';
 import './Inventory.css';
 
 const Inventory = () => {
-  const { inventory, addInventoryItem, deleteInventoryItem, language } = useStore();
+  const { inventory, categories, units, addInventoryItem, updateInventoryItem, deleteInventoryItem, language } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('All Time');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [showUnitsModal, setShowUnitsModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [printQuantity, setPrintQuantity] = useState(21); // Default to 21 (3x7 grid)
 
+  const availableCategories = Array.from(new Set([
+    'Panjabi', 'Shirt', 'Pant', 'T-Shirt', 'Polo', 'Pajama', 'Blazer', 'Accessories', 'Fabric',
+    ...(categories || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean),
+    ...inventory.map(i => i.category).filter(Boolean)
+  ]));
+
+  const availableUnits = Array.from(new Set([
+    'Pcs', 'Set', 'Box', 'Packet', 'Meter', 'Yard',
+    ...(units || []).map(u => typeof u === 'string' ? u : u.name).filter(Boolean),
+    ...inventory.map(i => i.unit).filter(Boolean)
+  ]));
+
   const [newProduct, setNewProduct] = useState({
-    id: '', name: '', category: 'Grocery', unit: 'Bag', variant: '', stock: 0, price: 0
+    id: '', name: '', category: 'Panjabi', unit: 'Pcs', variant: '', stock: 0, price: 0
   });
 
-  const handleEditSubmit = (e) => {
-    e.preventDefault();
-    updateInventoryItem(editingItem.id, { ...editingItem, price: parseFloat(editingItem.price), stock: parseInt(editingItem.stock) });
-    setEditingItem(null);
-    toast.success('Product updated successfully!');
+  const getNextProductId = () => {
+    const numericCodes = (inventory || [])
+      .map(i => parseInt(i.id || i.product_code))
+      .filter(n => !isNaN(n) && n > 0);
+    if (numericCodes.length > 0) {
+      return String(Math.max(...numericCodes) + 1);
+    }
+    return '10006';
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      deleteInventoryItem(id);
-      toast.success('Product deleted!');
+  const handleOpenAddModal = () => {
+    setNewProduct({
+      id: getNextProductId(),
+      name: '',
+      category: availableCategories[0] || 'Panjabi',
+      unit: availableUnits[0] || 'Pcs',
+      variant: '',
+      stock: 0,
+      price: 0
+    });
+    setShowAddModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...editingItem,
+      price: parseFloat(editingItem.price) || 0,
+      stock: parseInt(editingItem.stock) || 0,
+    };
+    const res = await updateInventoryItem(editingItem.id, payload);
+    if (res?.ok) {
+      setEditingItem(null);
+      toast.success(language === 'bn' ? 'পণ্য সফলভাবে আপডেট হয়েছে!' : 'Product updated successfully!');
     }
   };
 
-  const handleAddProduct = (e) => {
+  const handleDelete = async (id) => {
+    if (window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই পণ্যটি ডিলিট করতে চান?' : 'Are you sure you want to delete this item?')) {
+      const res = await deleteInventoryItem(id);
+      if (res?.ok) {
+        toast.success(language === 'bn' ? 'পণ্য ডিলিট করা হয়েছে!' : 'Product deleted!');
+      }
+    }
+  };
+
+  const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!newProduct.id || !newProduct.name) {
-      toast.error('ID and Name are required!');
+    const finalId = (newProduct.id || '').trim() || getNextProductId();
+    const finalName = (newProduct.name || '').trim();
+    if (!finalName) {
+      toast.error(language === 'bn' ? 'পণ্যের নাম দেওয়া আবশ্যক!' : 'Product name is required!');
       return;
     }
-    
-    // Add to global store
-    addInventoryItem(newProduct);
-    
-    setShowAddModal(false);
-    setNewProduct({ id: '', name: '', category: 'Grocery', unit: 'Bag', variant: '', stock: 0, price: 0 });
-    toast.success('Product added successfully!');
+
+    const payload = {
+      ...newProduct,
+      id: finalId,
+      name: finalName,
+      price: parseFloat(newProduct.price) || 0,
+      stock: parseInt(newProduct.stock) || 0,
+    };
+
+    const res = await addInventoryItem(payload);
+    if (res?.ok) {
+      setShowAddModal(false);
+      setNewProduct({ id: '', name: '', category: 'Panjabi', unit: 'Pcs', variant: '', stock: 0, price: 0 });
+      toast.success(language === 'bn' ? 'নতুন পণ্য সফলভাবে যুক্ত হয়েছে!' : 'Product added successfully!');
+    }
   };
 
   const handlePrintBarcode = (product) => {
@@ -117,7 +173,7 @@ const Inventory = () => {
           <button className="btn-outline flex-align-gap text-info" onClick={() => downloadAsPDF('printable-inventory-list', 'Inventory_List.pdf')}>
             <Download size={18} /> {t(language, 'Download PDF' || 'Download')}
           </button>
-          <button className="btn-primary flex-align-gap" style={{ width: 'fit-content', whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
+          <button className="btn-primary flex-align-gap" style={{ width: 'fit-content', whiteSpace: 'nowrap' }} onClick={handleOpenAddModal}>
             <Plus size={18} /> {t(language, 'Add New Item')}
           </button>
         </div>
@@ -165,8 +221,12 @@ const Inventory = () => {
                 />
               </div>
             )}
-            <button className="btn-outline">Categories</button>
-            <button className="btn-outline">Units</button>
+            <button className="btn-outline" onClick={() => setShowCategoriesModal(true)}>
+              {t(language, 'Categories')} ({availableCategories.length})
+            </button>
+            <button className="btn-outline" onClick={() => setShowUnitsModal(true)}>
+              {t(language, 'Units')} ({availableUnits.length})
+            </button>
           </div>
         </div>
 
@@ -206,7 +266,7 @@ const Inventory = () => {
                       <button className="btn-icon text-info" title="Edit" onClick={() => setEditingItem(item)}>
                         <Edit size={16} />
                       </button>
-                      <button className="btn-icon text-danger" title="Delete" onClick={() => deleteInventoryItem(item.id)}>
+                      <button className="btn-icon text-danger" title="Delete" onClick={() => handleDelete(item.id)}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -338,12 +398,29 @@ const Inventory = () => {
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="add-product-form" onSubmit={handleAddProduct}>
+            <form id="add-product-form" onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div>
-                    <label className="text-muted text-sm block mb-1">{t(language, 'ID/Barcode' || 'Product ID / Barcode')} *</label>
-                    <input type="text" className="w-full" value={newProduct.id} onChange={e => setNewProduct({...newProduct, id: e.target.value})} required placeholder="e.g. 10004" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <label className="text-muted text-sm">{t(language, 'ID/Barcode' || 'Product ID / Barcode')} *</label>
+                      <button 
+                        type="button" 
+                        className="text-xs text-info" 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                        onClick={() => setNewProduct({ ...newProduct, id: getNextProductId() })}
+                      >
+                        {language === 'bn' ? 'আইডি অটো-জেনারেট করুন' : 'Auto Generate ID'}
+                      </button>
+                    </div>
+                    <input 
+                      type="text" 
+                      className="w-full" 
+                      value={newProduct.id} 
+                      onChange={e => setNewProduct({...newProduct, id: e.target.value})} 
+                      required 
+                      placeholder={`e.g. ${getNextProductId()}`} 
+                    />
                   </div>
                   <div>
                     <label className="text-muted text-sm block mb-1">{t(language, 'Item Name')} *</label>
@@ -352,22 +429,28 @@ const Inventory = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Category')}</label>
-                      <input type="text" className="w-full" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} placeholder="e.g. Grocery" />
+                      <input 
+                        list="inventory-category-options"
+                        type="text" 
+                        className="w-full" 
+                        value={newProduct.category} 
+                        onChange={e => setNewProduct({...newProduct, category: e.target.value})} 
+                        placeholder="e.g. Panjabi" 
+                      />
+                      <datalist id="inventory-category-options">
+                        {availableCategories.map(c => <option key={c} value={c} />)}
+                      </datalist>
                     </div>
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Variant' || 'Variant')}</label>
-                      <input type="text" className="w-full" value={newProduct.variant} onChange={e => setNewProduct({...newProduct, variant: e.target.value})} placeholder="e.g. Red, XL, 500gm" />
+                      <input type="text" className="w-full" value={newProduct.variant} onChange={e => setNewProduct({...newProduct, variant: e.target.value})} placeholder="e.g. Red, XL, 40" />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Unit')}</label>
                       <select className="w-full" value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})}>
-                        <option value="Bag">Bag</option>
-                        <option value="Bottle">Bottle</option>
-                        <option value="Packet">Packet</option>
-                        <option value="Pcs">Pcs</option>
-                        <option value="Kg">Kg</option>
+                        {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
                     <div>
@@ -380,12 +463,12 @@ const Inventory = () => {
                     <input type="number" className="w-full" min="0" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})} />
                   </div>
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="add-product-form" className="btn-primary flex-align-gap"><Plus size={18} /> {t(language, 'Save')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary flex-align-gap"><Plus size={18} /> {t(language, 'Save')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -401,8 +484,8 @@ const Inventory = () => {
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="edit-product-form" onSubmit={handleEditSubmit}>
+            <form id="edit-product-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                   <div>
                     <label className="text-muted text-sm block mb-1">{t(language, 'ID/Barcode' || 'Product ID / Barcode')} *</label>
@@ -415,7 +498,16 @@ const Inventory = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Category')}</label>
-                      <input type="text" className="w-full" value={editingItem.category} onChange={e => setEditingItem({...editingItem, category: e.target.value})} />
+                      <input 
+                        list="inventory-category-options-edit"
+                        type="text" 
+                        className="w-full" 
+                        value={editingItem.category} 
+                        onChange={e => setEditingItem({...editingItem, category: e.target.value})} 
+                      />
+                      <datalist id="inventory-category-options-edit">
+                        {availableCategories.map(c => <option key={c} value={c} />)}
+                      </datalist>
                     </div>
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Variant' || 'Variant')}</label>
@@ -426,11 +518,7 @@ const Inventory = () => {
                     <div>
                       <label className="text-muted text-sm block mb-1">{t(language, 'Unit')}</label>
                       <select className="w-full" value={editingItem.unit} onChange={e => setEditingItem({...editingItem, unit: e.target.value})}>
-                        <option value="Bag">Bag</option>
-                        <option value="Bottle">Bottle</option>
-                        <option value="Packet">Packet</option>
-                        <option value="Pcs">Pcs</option>
-                        <option value="Kg">Kg</option>
+                        {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
                     <div>
@@ -443,11 +531,75 @@ const Inventory = () => {
                     <input type="number" className="w-full" min="0" value={editingItem.price} onChange={e => setEditingItem({...editingItem, price: parseFloat(e.target.value) || 0})} />
                   </div>
                 </div>
-              </form>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setEditingItem(null)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary flex-align-gap"><Edit size={18} /> {t(language, 'Save Changes')}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Categories Summary Drawer */}
+      {showCategoriesModal && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container" style={{ maxWidth: '500px' }}>
+            <div className="drawer-header">
+              <h2>{t(language, 'Categories')} ({availableCategories.length})</h2>
+              <button className="drawer-close-btn" onClick={() => setShowCategoriesModal(false)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <p className="text-muted mb-4">{language === 'bn' ? 'বর্তমান স্টকে থাকা ক্যাটাগরি এবং প্রোডাক্ট সংখ্যা:' : 'Active categories and products in stock:'}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {availableCategories.map((cat, idx) => {
+                  const count = inventory.filter(i => (i.category || '').toLowerCase() === cat.toLowerCase()).length;
+                  return (
+                    <div key={idx} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem' }}>
+                      <span style={{ fontWeight: '600' }}>{cat}</span>
+                      <span className="stock-badge success">{count} {language === 'bn' ? 'টি পণ্য' : 'products'}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setEditingItem(null)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="edit-product-form" className="btn-primary flex-align-gap"><Edit size={18} /> {t(language, 'Save Changes')}</button>
+              <button type="button" className="btn-primary w-full" onClick={() => setShowCategoriesModal(false)}>{t(language, 'Close')}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Units Summary Drawer */}
+      {showUnitsModal && createPortal(
+        <div className="drawer-overlay">
+          <div className="drawer-container" style={{ maxWidth: '500px' }}>
+            <div className="drawer-header">
+              <h2>{t(language, 'Units')} ({availableUnits.length})</h2>
+              <button className="drawer-close-btn" onClick={() => setShowUnitsModal(false)}>
+                <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
+              </button>
+            </div>
+            <div className="drawer-body">
+              <p className="text-muted mb-4">{language === 'bn' ? 'ব্যবহৃত এককসমূহ:' : 'Measurement units currently configured:'}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {availableUnits.map((u, idx) => {
+                  const count = inventory.filter(i => (i.unit || '').toLowerCase() === u.toLowerCase()).length;
+                  return (
+                    <div key={idx} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem' }}>
+                      <span style={{ fontWeight: '600' }}>{u}</span>
+                      <span className="stock-badge warning">{count} {language === 'bn' ? 'আইটেম' : 'items'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="drawer-footer">
+              <button type="button" className="btn-primary w-full" onClick={() => setShowUnitsModal(false)}>{t(language, 'Close')}</button>
             </div>
           </div>
         </div>,

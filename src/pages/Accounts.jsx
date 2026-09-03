@@ -9,7 +9,7 @@ const Accounts = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [transferForm, setTransferForm] = useState({ from: 'Cash', to: 'Bank', amount: '' });
 
-  const handleTransfer = (e) => {
+  const handleTransfer = async (e) => {
     e.preventDefault();
     const amount = parseFloat(transferForm.amount);
     if (!amount || amount <= 0) return toast.error('Invalid amount');
@@ -17,9 +17,12 @@ const Accounts = () => {
     if (transferForm.from === 'Cash' && amount > cashBalance) return toast.error('Insufficient Cash Balance');
     if (transferForm.from === 'Bank' && amount > bankBalance) return toast.error('Insufficient Bank Balance');
 
-    transferFunds(transferForm.from, transferForm.to, amount);
-    toast.success('Transfer Successful!');
-    setTransferForm({ from: 'Cash', to: 'Bank', amount: '' });
+    const res = await transferFunds(transferForm.from, transferForm.to, amount);
+    if (res?.ok) {
+      toast.success('Transfer Successful!');
+      setTransferForm({ from: 'Cash', to: 'Bank', amount: '' });
+      setActiveTab('Dashboard');
+    }
   };
 
   if (user?.role !== 'Admin') {

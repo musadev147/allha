@@ -63,8 +63,8 @@ const POS = () => {
 
   const total = Math.max(0, subtotal - invoiceDiscount);
 
-  const handleCheckout = () => {
-    if (!customerInfo.name) {
+  const handleCheckout = async () => {
+    if (!customerInfo.name?.trim()) {
       toast.error('Customer Name is explicitly required for all sales!');
       return;
     }
@@ -79,17 +79,18 @@ const POS = () => {
     };
     
     if (editingSaleId) {
-      deleteSale(editingSaleId);
+      await deleteSale(editingSaleId);
       setEditingSaleId(null);
     }
     
-    processSale(saleData);
-    setCompletedSale({ ...saleData, subtotal, total, date: new Date().toISOString(), invoiceId: 'INV' + Date.now() });
-    
-    clearCart();
-    setCustomerInfo({ name: '', phone: '', location: '' });
-    setInvoiceDiscount(0);
-    toast.success(editingSaleId ? 'Sale updated successfully!' : 'Sale processed successfully!');
+    const res = await processSale(saleData);
+    if (res?.ok) {
+      setCompletedSale({ ...saleData, subtotal, total, date: new Date().toISOString(), invoiceId: 'INV' + Date.now() });
+      clearCart();
+      setCustomerInfo({ name: '', phone: '', location: '' });
+      setInvoiceDiscount(0);
+      toast.success(editingSaleId ? 'Sale updated successfully!' : 'Sale processed successfully!');
+    }
   };
 
   const handleEditSale = (sale) => {
@@ -107,10 +108,12 @@ const POS = () => {
     setActiveTab('New');
   };
 
-  const handleDeleteSale = (saleId) => {
+  const handleDeleteSale = async (saleId) => {
     if (window.confirm('Are you sure you want to delete this sale? This action will reverse stock and cash balances.')) {
-      deleteSale(saleId);
-      toast.success('Sale deleted successfully!');
+      const res = await deleteSale(saleId);
+      if (res?.ok) {
+        toast.success('Sale deleted successfully!');
+      }
     }
   };
 
@@ -168,7 +171,7 @@ const POS = () => {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', padding: '0 1.5rem 1rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
           {inventory.length === 0 ? (
             <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={loadDummyData}>
-              <Database size={16} /> {t(language, 'Load Dummy Inventory')}
+              <Database size={16} /> {language === 'bn' ? 'স্টক সিঙ্ক করুন' : 'Sync Inventory'}
             </button>
           ) : (
             inventory.slice(0, 5).map(item => (

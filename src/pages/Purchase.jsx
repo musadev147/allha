@@ -25,6 +25,8 @@ const Purchase = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [isSubmittingPurchase, setIsSubmittingPurchase] = useState(false);
+
   const filteredPurchases = purchases.filter(p => {
     if (!startDate && !endDate) return true;
     const pDate = p.date.split('T')[0];
@@ -33,27 +35,26 @@ const Purchase = () => {
     return true;
   });
 
-  const handleEditPurchase = (purchase) => {
+  const handleEditPurchase = async (purchase) => {
     if (window.confirm('Editing will reverse this purchase from history and load it into the new purchase form. Do you want to continue?')) {
-      // 1. Load details into form
       setSupplier(purchase.supplierName);
       setPaymentType(purchase.paymentType);
       setPaidAmount(purchase.paidAmount !== undefined ? purchase.paidAmount : purchase.total);
       setItems(purchase.items);
       
-      // 2. Delete the old purchase to reverse stock and balances
-      deletePurchase(purchase.id);
+      await deletePurchase(purchase.id);
       
-      // 3. Switch to New tab
       setActiveTab('New');
       toast.info('Purchase loaded for editing.');
     }
   };
 
-  const handleDeletePurchase = (id) => {
+  const handleDeletePurchase = async (id) => {
     if (window.confirm('Are you sure you want to delete this purchase? This will reverse stock and supplier balances. This action cannot be undone.')) {
-      deletePurchase(id);
-      toast.success('Purchase deleted successfully!');
+      const res = await deletePurchase(id);
+      if (res?.ok) {
+        toast.success('Purchase deleted successfully!');
+      }
     }
   };
 
@@ -297,7 +298,7 @@ const Purchase = () => {
             <button 
               className="btn-primary" 
               style={{ padding: '1rem 2rem', fontSize: '1.2rem', borderRadius: 'var(--radius-lg)' }}
-              onClick={() => {
+              onClick={async () => {
                 const total = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
                 if (!supplier) {
                   toast.error('Please select a supplier');
@@ -313,27 +314,34 @@ const Purchase = () => {
                 const finalSupplierId = supplierObj ? supplierObj.id : `SUP_CUSTOM_${Date.now()}`;
                 const finalSupplierName = supplierObj ? supplierObj.name : supplier;
                 
-                processPurchase({
-                  supplierId: finalSupplierId,
-                  supplierName: finalSupplierName,
-                  paymentType,
-                  items: validItems,
-                  total,
-                  paidAmount: paymentType === 'Baki' ? (parseFloat(paidAmount) || 0) : total,
-                  date: new Date().toISOString(),
-                  id: 'PUR' + Date.now()
-                });
-                
-                toast.success('Purchase successfully recorded!');
-                setSupplier('');
-                setPaidAmount('');
-                setItems([]);
-                setActiveTab('History');
+                setIsSubmittingPurchase(true);
+                try {
+                  const res = await processPurchase({
+                    supplierId: finalSupplierId,
+                    supplierName: finalSupplierName,
+                    paymentType,
+                    items: validItems,
+                    total,
+                    paidAmount: paymentType === 'Baki' ? (parseFloat(paidAmount) || 0) : total,
+                    date: new Date().toISOString(),
+                    id: 'PUR' + Date.now()
+                  });
+                  
+                  if (res?.ok) {
+                    toast.success('Purchase successfully recorded!');
+                    setSupplier('');
+                    setPaidAmount('');
+                    setItems([]);
+                    setActiveTab('History');
+                  }
+                } finally {
+                  setIsSubmittingPurchase(false);
+                }
               }}
-              disabled={items.filter(i => i.productId).length === 0 || !supplier}
+              disabled={isSubmittingPurchase || items.filter(i => i.productId).length === 0 || !supplier}
             >
               <FilePlus size={20} className="mr-2 inline" />
-              Save Purchase
+              {isSubmittingPurchase ? 'Processing...' : 'Save Purchase'}
             </button>
           </div>
         </div>

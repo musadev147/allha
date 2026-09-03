@@ -7,7 +7,7 @@ import { t } from '../utils/i18n';
 import { toast } from 'react-toastify';
 
 const Customers = () => {
-  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements, language, addCustomer, updateCustomer, deleteCustomer, updateSupplier, deleteSupplier } = useStore();
+  const { customers, suppliers, settleCustomerDue, settleSupplierDue, sales, purchases, settlements, sendSms, language, addCustomer, updateCustomer, deleteCustomer, updateSupplier, deleteSupplier } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('Customer'); // Customer or Supplier
   const [smsModal, setSmsModal] = useState({ show: false, target: null, message: '' });
@@ -69,73 +69,75 @@ const Customers = () => {
       person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       person.phone.includes(searchTerm)
   );
-  const handleSendSMS = (e) => {
+  const handleSendSMS = async (e) => {
     e.preventDefault();
-    alert(`SMS sent to ${smsModal.target.name} (${smsModal.target.phone}):\n"${smsModal.message}"`);
-    setSmsModal({ show: false, target: null, message: '' });
+    const result = await sendSms(smsModal.message, [smsModal.target.id], []);
+    if (result?.ok) {
+      setSmsModal({ show: false, target: null, message: '' });
+    }
   };
 
-  const handleSettle = (e) => {
+  const handleSettle = async (e) => {
     e.preventDefault();
     const amount = parseFloat(settleModal.amount);
     if (!amount || amount <= 0) {
-      alert('Please enter a valid amount to settle.');
+      toast.error('Please enter a valid amount to settle.');
       return;
     }
 
-    if (activeTab === 'Customer') {
-      settleCustomerDue(settleModal.target.id, amount, settleModal.date);
-      alert(`Successfully settled ৳${amount} for Customer: ${settleModal.target.name}`);
-    } else {
-      settleSupplierDue(settleModal.target.id, amount, settleModal.date);
-      alert(`Successfully settled ৳${amount} for Supplier: ${settleModal.target.name}`);
-    }
+    const res = activeTab === 'Customer'
+      ? await settleCustomerDue(settleModal.target.id, amount, settleModal.date)
+      : await settleSupplierDue(settleModal.target.id, amount, settleModal.date);
 
-    setSettleModal({ show: false, target: null, amount: '', date: '' });
+    if (res?.ok) {
+      toast.success(`Successfully settled ৳${amount} for ${settleModal.target.name}`);
+      setSettleModal({ show: false, target: null, amount: '', date: '' });
+    }
   };
 
-  const handleAddCustomer = (e) => {
+  const handleAddCustomer = async (e) => {
     e.preventDefault();
-    if (!newCustomer.name) {
-      alert("Name is required");
+    if (!newCustomer.name?.trim()) {
+      toast.error(language === 'bn' ? 'কাস্টমারের নাম দেওয়া আবশ্যক!' : 'Name is required');
       return;
     }
-    const customerToSave = { ...newCustomer };
-    if (customerToSave.due) {
-      customerToSave.due = parseFloat(customerToSave.due) || 0;
-    } else {
-      customerToSave.due = 0;
+    const customerToSave = {
+      ...newCustomer,
+      name: newCustomer.name.trim(),
+      due: parseFloat(newCustomer.due) || 0,
+    };
+    const res = await addCustomer(customerToSave);
+    if (res?.ok) {
+      setNewCustomer({ name: '', phone: '', location: '', due: '', notes: '' });
+      setShowAddModal(false);
+      toast.success(language === 'bn' ? 'কাস্টমার সফলভাবে যুক্ত হয়েছে!' : 'Customer added successfully!');
     }
-    addCustomer(customerToSave);
-    setNewCustomer({ name: '', phone: '', location: '', due: '', notes: '' });
-    setShowAddModal(false);
-    toast.success('Customer added successfully!');
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!editingPerson.name) {
-      alert("Name is required");
+    if (!editingPerson.name?.trim()) {
+      toast.error(language === 'bn' ? 'কাস্টমারের নাম দেওয়া আবশ্যক!' : 'Name is required');
       return;
     }
     const due = parseFloat(editingPerson.due) || 0;
-    if (activeTab === 'Customer') {
-      updateCustomer(editingPerson.id, { ...editingPerson, due });
-    } else {
-      updateSupplier(editingPerson.id, { ...editingPerson, due });
+    const payload = { ...editingPerson, name: editingPerson.name.trim(), due };
+    const res = activeTab === 'Customer' 
+      ? await updateCustomer(editingPerson.id, payload)
+      : await updateSupplier(editingPerson.id, payload);
+
+    if (res?.ok) {
+      setEditingPerson(null);
+      toast.success(language === 'bn' ? 'তথ্য সফলভাবে আপডেট হয়েছে!' : 'Updated successfully!');
     }
-    setEditingPerson(null);
-    toast.success('Updated successfully!');
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this record? This action cannot be undone.')) {
-      if (activeTab === 'Customer') {
-        deleteCustomer(id);
-      } else {
-        deleteSupplier(id);
+  const handleDelete = async (id) => {
+    if (window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিত এই রেকর্ডটি মুছে ফেলতে চান?' : 'Are you sure you want to delete this record? This action cannot be undone.')) {
+      const res = activeTab === 'Customer' ? await deleteCustomer(id) : await deleteSupplier(id);
+      if (res?.ok) {
+        toast.success(language === 'bn' ? 'সফলভাবে মুছে ফেলা হয়েছে!' : 'Deleted successfully!');
       }
-      toast.success('Deleted successfully!');
     }
   };
 
@@ -300,19 +302,14 @@ const Customers = () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="settle-form" onSubmit={handleSettle}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+            <form id="settle-form" onSubmit={handleSettle} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <p className="mb-4 text-muted">
+                  {language === 'bn' ? 'বর্তমান বকেয়া:' : 'Current Due:'} <strong className="text-danger">৳{settleModal.target?.due}</strong>
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label className="text-muted text-sm block mb-1">{t(language, 'Target' || 'Target')}</label>
-                    <p className="font-bold">{settleModal.target?.name} ({settleModal.target?.id})</p>
-                  </div>
-                  <div>
-                    <label className="text-muted text-sm block mb-1">{t(language, 'Current Due' || 'Current Due')} (BDT)</label>
-                    <p className="font-bold text-danger text-lg">৳{settleModal.target?.due}</p>
-                  </div>
-                  <div>
-                    <label className="text-muted text-sm block mb-1">{t(language, 'Settlement Amount' || 'Settlement Amount')} (BDT)</label>
+                    <label className="text-muted text-sm block mb-1">{language === 'bn' ? 'পরিশোধের পরিমাণ' : 'Amount to Settle'} (BDT)</label>
                     <input 
                       type="number" 
                       className="w-full" 
@@ -336,12 +333,12 @@ const Customers = () => {
                     />
                   </div>
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="settle-form" className="btn-primary">{t(language, 'Save')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setSettleModal({ show: false, target: null, amount: '', date: '' })}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -357,65 +354,67 @@ const Customers = () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="add-customer-form" onSubmit={handleAddCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Customer Name *</label>
-                  <input 
-                    type="text" 
-                    value={newCustomer.name} 
-                    onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} 
-                    placeholder="e.g. Rahim Rahman" 
-                    required 
-                    style={{ width: '100%' }}
-                  />
+            <form id="add-customer-form" onSubmit={handleAddCustomer} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Customer Name *</label>
+                    <input 
+                      type="text" 
+                      value={newCustomer.name} 
+                      onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} 
+                      placeholder="e.g. Rahim Rahman" 
+                      required 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={newCustomer.phone} 
+                      onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} 
+                      placeholder="e.g. 01712345678" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                    <input 
+                      type="text" 
+                      value={newCustomer.location} 
+                      onChange={e => setNewCustomer({...newCustomer, location: e.target.value})} 
+                      placeholder="e.g. Dhaka" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Opening Balance (Due)</label>
+                    <input 
+                      type="number" 
+                      value={newCustomer.due} 
+                      onChange={e => setNewCustomer({...newCustomer, due: e.target.value})} 
+                      placeholder="e.g. 5000" 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Notes / Remarks</label>
+                    <textarea 
+                      value={newCustomer.notes} 
+                      onChange={e => setNewCustomer({...newCustomer, notes: e.target.value})} 
+                      placeholder="Any additional information..." 
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                      rows={2}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                  <input 
-                    type="text" 
-                    value={newCustomer.phone} 
-                    onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} 
-                    placeholder="e.g. 01712345678" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
-                  <input 
-                    type="text" 
-                    value={newCustomer.location} 
-                    onChange={e => setNewCustomer({...newCustomer, location: e.target.value})} 
-                    placeholder="e.g. Dhaka" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Opening Balance (Due)</label>
-                  <input 
-                    type="number" 
-                    value={newCustomer.due} 
-                    onChange={e => setNewCustomer({...newCustomer, due: e.target.value})} 
-                    placeholder="e.g. 5000" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Notes / Remarks</label>
-                  <textarea 
-                    value={newCustomer.notes} 
-                    onChange={e => setNewCustomer({...newCustomer, notes: e.target.value})} 
-                    placeholder="Any additional information..." 
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                    rows={2}
-                  />
-                </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button type="submit" form="add-customer-form" className="btn-primary">Add Customer</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Add Customer</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -431,53 +430,55 @@ const Customers = () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="edit-person-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Name *</label>
-                  <input 
-                    type="text" 
-                    value={editingPerson.name} 
-                    onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
-                    required 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                  <input 
-                    type="text" 
-                    value={editingPerson.phone || ''} 
-                    onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                {activeTab === 'Customer' && (
+            <form id="edit-person-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Name *</label>
                     <input 
                       type="text" 
-                      value={editingPerson.location || ''} 
-                      onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
+                      value={editingPerson.name} 
+                      onChange={e => setEditingPerson({...editingPerson, name: e.target.value})} 
+                      required 
                       style={{ width: '100%' }}
                     />
                   </div>
-                )}
-                <div>
-                  <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
-                  <input 
-                    type="number" 
-                    value={editingPerson.due} 
-                    onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
-                    style={{ width: '100%' }}
-                  />
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                    <input 
+                      type="text" 
+                      value={editingPerson.phone || ''} 
+                      onChange={e => setEditingPerson({...editingPerson, phone: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  {activeTab === 'Customer' && (
+                    <div>
+                      <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Location / Address</label>
+                      <input 
+                        type="text" 
+                        value={editingPerson.location || ''} 
+                        onChange={e => setEditingPerson({...editingPerson, location: e.target.value})} 
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Total Due (BDT)</label>
+                    <input 
+                      type="number" 
+                      value={editingPerson.due} 
+                      onChange={e => setEditingPerson({...editingPerson, due: e.target.value})} 
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
-              <button type="submit" form="edit-person-form" className="btn-primary">Save Changes</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setEditingPerson(null)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -493,9 +494,9 @@ const Customers = () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
-            <div className="drawer-body">
-              <p className="mb-4 text-muted">To: {smsModal.target?.name} ({smsModal.target?.phone})</p>
-              <form id="sms-form" onSubmit={handleSendSMS}>
+            <form id="sms-form" onSubmit={handleSendSMS} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
+                <p className="mb-4 text-muted">To: {smsModal.target?.name} ({smsModal.target?.phone})</p>
                 <textarea
                   className="w-full"
                   rows="4"
@@ -503,12 +504,12 @@ const Customers = () => {
                   onChange={(e) => setSmsModal({ ...smsModal, message: e.target.value })}
                   required
                 />
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setSmsModal({ show: false, target: null, message: '' })}>Cancel</button>
-              <button type="submit" form="sms-form" className="btn-primary flex-align-gap"><MessageSquare size={16} /> Send</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setSmsModal({ show: false, target: null, message: '' })}>Cancel</button>
+                <button type="submit" className="btn-primary flex-align-gap"><MessageSquare size={16} /> Send</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

@@ -29,45 +29,59 @@ const HR = () => {
   const [payrollMonth, setPayrollMonth] = useState(todayStr.substring(0, 7)); // YYYY-MM
 
   // Handlers
-  const handleAddStaff = (e) => {
+  const handleAddStaff = async (e) => {
     e.preventDefault();
-    addStaff({
+    if (!newStaff.name?.trim()) return toast.error('Name is required');
+    const res = await addStaff({
       ...newStaff,
-      baseSalary: parseFloat(newStaff.baseSalary),
+      name: newStaff.name.trim(),
+      baseSalary: parseFloat(newStaff.baseSalary) || 0,
       joinDate: todayStr
     });
-    setShowAddStaffModal(false);
-    setNewStaff({ name: '', role: 'Salesman', baseSalary: '', phone: '', address: '', bankAccount: '', username: '', password: '' });
-  };
-
-  const handleEditStaff = (e) => {
-    e.preventDefault();
-    updateStaff(editingStaff.id, {
-      ...editingStaff,
-      baseSalary: parseFloat(editingStaff.baseSalary)
-    });
-    setEditingStaff(null);
-    toast.success('Staff updated successfully!');
-  };
-
-  const handleDeleteStaff = (id) => {
-    if (window.confirm('Are you sure you want to delete this staff member?')) {
-      deleteStaff(id);
-      toast.success('Staff deleted successfully!');
+    if (res?.ok) {
+      setShowAddStaffModal(false);
+      setNewStaff({ name: '', role: 'Salesman', baseSalary: '', phone: '', address: '', bankAccount: '', username: '', password: '' });
+      toast.success('Staff added successfully!');
     }
   };
 
-  const handleApplyLeave = (e) => {
+  const handleEditStaff = async (e) => {
     e.preventDefault();
-    if (!newLeave.staffId) return toast.error('Please select a staff');
-    addLeaveRequest({
-      ...newLeave
+    if (!editingStaff.name?.trim()) return toast.error('Name is required');
+    const res = await updateStaff(editingStaff.id, {
+      ...editingStaff,
+      name: editingStaff.name.trim(),
+      baseSalary: parseFloat(editingStaff.baseSalary) || 0
     });
-    setShowLeaveModal(false);
-    setNewLeave({ staffId: '', type: 'Casual', reason: '', date: todayStr });
+    if (res?.ok) {
+      setEditingStaff(null);
+      toast.success('Staff updated successfully!');
+    }
   };
 
-  const handleGeneratePayslip = (staffMember, presentDays, bonus) => {
+  const handleDeleteStaff = async (id) => {
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      const res = await deleteStaff(id);
+      if (res?.ok) {
+        toast.success('Staff deleted successfully!');
+      }
+    }
+  };
+
+  const handleApplyLeave = async (e) => {
+    e.preventDefault();
+    if (!newLeave.staffId) return toast.error('Please select a staff');
+    const res = await addLeaveRequest({
+      ...newLeave
+    });
+    if (res?.ok) {
+      setShowLeaveModal(false);
+      setNewLeave({ staffId: '', type: 'Casual', reason: '', date: todayStr });
+      toast.success('Leave request submitted!');
+    }
+  };
+
+  const handleGeneratePayslip = async (staffMember, presentDays, bonus) => {
     const dailyRate = staffMember.baseSalary / 30;
     const netPay = Math.round((dailyRate * presentDays) + bonus);
 
@@ -75,7 +89,7 @@ const HR = () => {
     const alreadyPaid = payrolls.some(p => p.staffId === staffMember.id && p.month === payrollMonth);
     if (alreadyPaid) return toast.error('Payslip already generated for this month!');
 
-    generatePayslip({
+    const res = await generatePayslip({
       month: payrollMonth,
       year: payrollMonth.split('-')[0],
       staffId: staffMember.id,
@@ -85,7 +99,9 @@ const HR = () => {
       bonus,
       netPay
     });
-    alert(`Payslip generated for ${staffMember.name}. Amount: ৳${netPay}`);
+    if (res?.ok) {
+      toast.success(`Payslip generated for ${staffMember.name}. Amount: ৳${netPay}`);
+    }
   };
 
   return (
@@ -365,8 +381,8 @@ const HR = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="add-staff-form" onSubmit={handleAddStaff}>
+            <form id="add-staff-form" onSubmit={handleAddStaff} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div className="responsive-grid-2">
                   <div className="form-group">
                     <label className="text-muted mb-1 block">Name</label>
@@ -405,12 +421,12 @@ const HR = () => {
                     <input type="password" className="w-full" placeholder="Secret" value={newStaff.password} onChange={e => setNewStaff({ ...newStaff, password: e.target.value })} />
                   </div>
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowAddStaffModal(false)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="add-staff-form" className="btn-primary">{t(language, 'Save' || 'Add Staff')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowAddStaffModal(false)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save' || 'Add Staff')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -426,8 +442,8 @@ const HR = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="edit-staff-form" onSubmit={handleEditStaff}>
+            <form id="edit-staff-form" onSubmit={handleEditStaff} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div className="responsive-grid-2">
                   <div className="form-group">
                     <label className="text-muted mb-1 block">Name</label>
@@ -466,12 +482,12 @@ const HR = () => {
                     <input type="text" className="w-full" placeholder="Leave blank to keep same" value={editingStaff.password} onChange={e => setEditingStaff({ ...editingStaff, password: e.target.value })} />
                   </div>
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setEditingStaff(null)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="edit-staff-form" className="btn-primary">{t(language, 'Save Changes')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setEditingStaff(null)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save Changes')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
@@ -487,8 +503,8 @@ const HR = () => {
                 <X size={24} />
               </button>
             </div>
-            <div className="drawer-body">
-              <form id="apply-leave-form" onSubmit={handleApplyLeave}>
+            <form id="apply-leave-form" onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div className="drawer-body">
                 <div className="form-group mb-4">
                   <label>Date</label>
                   <input required type="date" className="w-full" value={newLeave.date} onChange={e => setNewLeave({ ...newLeave, date: e.target.value })} />
@@ -512,12 +528,12 @@ const HR = () => {
                   <label>Reason</label>
                   <input required type="text" className="w-full" value={newLeave.reason} onChange={e => setNewLeave({ ...newLeave, reason: e.target.value })} />
                 </div>
-              </form>
-            </div>
-            <div className="drawer-footer">
-              <button type="button" className="btn-outline" onClick={() => setShowLeaveModal(false)}>{t(language, 'Cancel')}</button>
-              <button type="submit" form="apply-leave-form" className="btn-primary">{t(language, 'Save' || 'Submit Request')}</button>
-            </div>
+              </div>
+              <div className="drawer-footer">
+                <button type="button" className="btn-outline" onClick={() => setShowLeaveModal(false)}>{t(language, 'Cancel')}</button>
+                <button type="submit" className="btn-primary">{t(language, 'Save' || 'Submit Request')}</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

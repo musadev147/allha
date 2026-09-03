@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "allha-api",
+      "runtimeExecutable": "D:/alhardan/allha_backend/venv/Scripts/python.exe",
+      "runtimeArgs": ["D:/alhardan/allha_backend/manage.py", "runserver", "8000"],
+      "port": 8000,
+      "autoPort": false
+    },
+    {
+      "name": "allha-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174,
+      "autoPort": false
+    }
+  ]
+}

@@ -1,21 +1,84 @@
-// Define all API endpoints here to avoid hardcoding strings across the app
+// Every path the app talks to, in one place.
+// All of them end in a slash: Django's routers require it, and a redirect
+// would drop the body of a POST.
 
 export const ENDPOINTS = {
   // Auth
-  LOGIN: '/auth/login',
-  REGISTER: '/auth/register',
-  
-  // Customers
-  CUSTOMERS: '/customers',
-  CUSTOMER_DETAILS: (id) => `/customers/${id}`,
+  LOGIN: '/auth/login/',
+  REGISTER: '/auth/register/',
+  PROFILE: '/auth/profile/',
+  TOKEN_REFRESH: '/auth/token/refresh/',
+  USERS: '/auth/users/',
 
-  // Products / Inventory
-  PRODUCTS: '/products',
-  PRODUCT_DETAILS: (id) => `/products/${id}`,
+  // Inventory
+  PRODUCTS: '/inventory/products/',
+  PRODUCT: (code) => `/inventory/products/${encodeURIComponent(code)}/`,
+  BARCODE_SEARCH: '/inventory/products/barcode-search/',
+  CATEGORIES: '/inventory/categories/',
+  UNITS: '/inventory/units/',
+  STOCK_LOGS: '/inventory/stock-logs/',
 
-  // Sales / POS
-  SALES: '/sales',
-  
+  // Contacts
+  CUSTOMERS: '/contacts/customers/',
+  CUSTOMER: (code) => `/contacts/customers/${encodeURIComponent(code)}/`,
+  SUPPLIERS: '/contacts/suppliers/',
+  SUPPLIER: (code) => `/contacts/suppliers/${encodeURIComponent(code)}/`,
+
+  // Sales
+  INVOICES: '/sales/invoices/',
+  INVOICE: (id) => `/sales/invoices/${encodeURIComponent(id)}/`,
+  DRAFTS: '/sales/drafts/',
+
+  // Purchases
+  PURCHASES: '/purchases/',
+  PURCHASE: (id) => `/purchases/${encodeURIComponent(id)}/`,
+
+  // Returns
+  RETURNS: '/returns/',
+  RETURN: (id) => `/returns/${encodeURIComponent(id)}/`,
+
+  // Ledger
+  SETTLEMENTS: '/ledger/settlements/',
+  SETTLEMENT: (code) => `/ledger/settlements/${encodeURIComponent(code)}/`,
+  SETTLE_DUE: '/ledger/settle-due/',
+  STATEMENT: (type, id) => `/ledger/statement/${type}/${encodeURIComponent(id)}/`,
+
+  // Expenses
+  EXPENSES: '/expenses/',
+  EXPENSE: (id) => `/expenses/${encodeURIComponent(id)}/`,
+  EXPENSE_CATEGORIES: '/expenses/categories/',
+  EXPENSE_MONTHLY: '/expenses/monthly-report/',
+
+  // HR
+  STAFF: '/hr/staff/',
+  STAFF_MEMBER: (code) => `/hr/staff/${encodeURIComponent(code)}/`,
+  ATTENDANCE: '/hr/attendance/',
+  ATTENDANCE_MARK: '/hr/attendance/mark/',
+  LEAVES: '/hr/leaves/',
+  LEAVE_STATUS: (id) => `/hr/leaves/${encodeURIComponent(id)}/status/`,
+  PAYROLLS: '/hr/payrolls/',
+  PAYROLL_GENERATE: '/hr/payrolls/generate/',
+
+  // Treasury (cash & bank)
+  TREASURY_SUMMARY: '/treasury/summary/',
+  TREASURY_ACCOUNTS: '/treasury/accounts/',
+  TREASURY_TRANSACTIONS: '/treasury/transactions/',
+  TREASURY_TRANSFER: '/treasury/transfer/',
+  TREASURY_ENTRY: '/treasury/entry/',
+
+  // SMS
+  SMS_SEND: '/sms/send/',
+  SMS_BALANCE: '/sms/balance/',
+  SMS_BUY: '/sms/buy/',
+  SMS_HISTORY: '/sms/history/',
+
   // Reports
-  REPORTS_SUMMARY: '/reports/summary',
+  REPORTS_SUMMARY: '/reports/summary/',
+  REPORTS_DETAILS: '/reports/details/',
+
+  // Core
+  SHOP_PROFILE: '/core/shop-profile/',
+  USER_SETTINGS: '/core/user-settings/',
 };
+
+export default ENDPOINTS;

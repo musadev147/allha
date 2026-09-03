@@ -24,14 +24,14 @@ const Returns = () => {
   const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!product) {
       toast.error('Please select a product');
       return;
     }
     
-    processReturn({
+    const res = await processReturn({
       returnType,
       date: entryDate,
       productId: product,
@@ -40,12 +40,15 @@ const Returns = () => {
       referenceId
     });
     
-    alert(`${returnType} Return/Reject processed successfully! Stock has been adjusted.`);
-    setProduct('');
-    setQuantity(1);
-    setReason('');
-    setReferenceId('');
-    setEntryDate(new Date().toISOString().split('T')[0]);
+    if (res?.ok) {
+      toast.success(`${returnType} Return/Reject processed successfully! Stock has been adjusted.`);
+      setProduct('');
+      setQuantity(1);
+      setReason('');
+      setReferenceId('');
+      setEntryDate(new Date().toISOString().split('T')[0]);
+      setActiveTab('History');
+    }
   };
 
   const filteredReturns = returns.filter(r => {
@@ -61,7 +64,7 @@ const Returns = () => {
     return item ? item.name : 'Unknown Product';
   };
 
-  const handleEditReturn = (ret) => {
+  const handleEditReturn = async (ret) => {
     if (window.confirm('Editing will reverse this return from history and load it into the new entry form. Do you want to continue?')) {
       setReturnType(ret.returnType);
       setProduct(ret.productId);
@@ -69,16 +72,18 @@ const Returns = () => {
       setReason(ret.reason);
       setReferenceId(ret.referenceId || '');
       
-      deleteReturn(ret.id);
+      await deleteReturn(ret.id);
       setActiveTab('New');
       toast.info('Return loaded for editing.');
     }
   };
 
-  const handleDeleteReturn = (id) => {
+  const handleDeleteReturn = async (id) => {
     if (window.confirm('Are you sure you want to delete this return? This will reverse stock adjustments. This action cannot be undone.')) {
-      deleteReturn(id);
-      toast.success('Return deleted successfully!');
+      const res = await deleteReturn(id);
+      if (res?.ok) {
+        toast.success('Return deleted successfully!');
+      }
     }
   };
 
